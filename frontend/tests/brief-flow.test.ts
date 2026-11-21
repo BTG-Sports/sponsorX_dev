@@ -15,7 +15,10 @@ import {
   resumeStep,
   stepAnswer,
   validateBriefStep,
+  marketPlace,
+  withMarket,
 } from "@/lib/brief-flow";
+import { regionChoices } from "@/lib/places";
 
 describe("steps", () => {
   it("asks one thing at a time: five steps and a review (POL-FE-114)", () => {
@@ -30,12 +33,12 @@ describe("steps", () => {
     }
   });
 
-  it("only the contact step asks for more than one typed answer, and the review asks for none", () => {
+  it("only the business and contact steps ask for typed answers; the market is picked (POL-FE-117)", () => {
     expect(BRIEF_STEPS.map((s) => s.fields.filter((f) => f.required).map((f) => f.key))).toEqual([
       [],
       ["company"],
       [],
-      ["market"],
+      [],
       ["name", "email"],
       [],
     ]);
@@ -95,10 +98,10 @@ describe("validateBriefStep", () => {
     expect(Object.keys(validateBriefStep(2, d))).toHaveLength(0);
   });
 
-  it("step 3 requires a market (free text)", () => {
+  it("step 3 requires a market, picked from the list", () => {
     const d = emptyBriefDraft();
     expect(validateBriefStep(3, d).market).toBeTruthy();
-    d.answers.market = "Silver Spring, MD";
+    d.answers = withMarket(d.answers, { countryCode: "US", regionCode: "MD", city: "" });
     expect(Object.keys(validateBriefStep(3, d))).toHaveLength(0);
   });
 
@@ -131,9 +134,28 @@ function filled() {
   d.goal = GOALS[0];
   d.businessType = "RESTAURANT";
   d.budget = BUDGET_BANDS[1];
-  d.answers = { company: "Cafe Milo", market: "Silver Spring, MD", name: "Jordan Avery", email: "jordan@cafemilo.com" };
+  d.answers = withMarket({ company: "Cafe Milo", name: "Jordan Avery", email: "jordan@cafemilo.com" }, { countryCode: "US", regionCode: "MD", city: "Takoma Park" });
   return d;
 }
+
+describe("POL-FE-117 · the market is picked, not typed", () => {
+  it("sends BTG the place in words, from the three picks", () => {
+    expect(withMarket({}, { countryCode: "US", regionCode: "MD", city: "Takoma Park" }).market).toBe("Takoma Park, MD");
+    expect(withMarket({}, { countryCode: "US", regionCode: "MD", city: "" }).market).toBe("Maryland");
+    const dar = regionChoices("TZ").find((r) => r.label === "Dar es Salaam")!.value;
+    expect(withMarket({}, { countryCode: "TZ", regionCode: dar, city: "Kigamboni" }).market).toBe("Kigamboni, Tanzania");
+    expect(withMarket({}, { countryCode: "TZ", regionCode: "", city: "" }).market).toBe("");
+  });
+  it("needs a country and a region from the list; a typed market from an older draft doesn't count", () => {
+    const at = BRIEF_STEPS.findIndex((s) => s.id === "market");
+    const d = emptyBriefDraft();
+    d.answers.market = "Silver Spring, MD";
+    expect(validateBriefStep(at, d).market).toMatch(/^Pick where your customers are: a country and a state/);
+    d.answers = withMarket(d.answers, { countryCode: "KE", regionCode: regionChoices("KE")[0]!.value, city: "" });
+    expect(validateBriefStep(at, d)).toEqual({});
+    expect(marketPlace(d)).toMatchObject({ countryCode: "KE" });
+  });
+});
 
 describe("where a draft opens", () => {
   it("a blank brief opens on the first step, a complete one may sit on the review", () => {
@@ -149,7 +171,7 @@ describe("where a draft opens", () => {
     d.step = 2;
     expect(resumeStep(d)).toBe(2);
     d.step = 5;
-    d.answers.market = " ";
+    d.answers.marketRegion = "";
     expect(resumeStep(d)).toBe(3);
   });
 
@@ -180,7 +202,7 @@ describe("stepAnswer", () => {
     const blank = emptyBriefDraft();
     for (const s of BRIEF_STEPS) expect(stepAnswer(s.id, blank)).toBe("");
     const d = filled();
-    expect(BRIEF_STEPS.map((s) => stepAnswer(s.id, d))).toEqual([GOALS[0], "Cafe Milo", BUDGET_BANDS[1], "Silver Spring, MD", "Jordan Avery", ""]);
+    expect(BRIEF_STEPS.map((s) => stepAnswer(s.id, d))).toEqual([GOALS[0], "Cafe Milo", BUDGET_BANDS[1], "Takoma Park, MD", "Jordan Avery", ""]);
     d.answers.company = "";
     d.answers.name = "";
     expect(stepAnswer("business", d)).toBe("Restaurant");

@@ -38,9 +38,14 @@ import { currentAgreementOf } from "./current-agreement";
 import { assertMayCommit } from "./guardian-acts";
 import { assertDealChatGreen } from "./deal-chat-check";
 import { formsFor, type AnswerValue, type DealForm } from "./deal-cards";
-import { renderDealAgreement, usdOf, type DealExchangeMessage, type DealSeller } from "./deal-agreement-render";
+import { renderDealAgreement, type DealExchangeMessage, type DealSeller } from "./deal-agreement-render";
 import { orderRef } from "./order-mail";
 import { afterDealsSigned, lockOrder } from "./marketplace-order";
+import { ensureFeeTerms } from "./ledger";
+import { dealFeesWords, inFeeOrder, presentStatement, sellerStatementFor, spreadAmount } from "./fee-statement";
+import { sponsorOrderStatement } from "./fee-statement-rules";
+import { orderQuote } from "./marketplace-order-rules";
+import { assertSellerTermsCurrent } from "./seller-terms";
 
 type Tx = Prisma.TransactionClient;
 
@@ -117,6 +122,27 @@ async function sellerFacts(tx: Tx, seller: DealSellerKey): Promise<{ seller: Dea
  * seller's open form, if any; refused once theirs is signed. Returns the new
  * agreement's id and fingerprint.
  */
+/**
+ * POL-BE-119 — the deal's fee statements: the order's frozen rates, this
+ * seller's lines at the agreed amount (spread as the repricing will spread
+ * it), the order's other lines as they stand.
+ */
+async function dealFees(
+  tx: Tx, orderId: string, all: ReadonlyArray<{ id: string; startsOn: Date; lineTotalCents: number }>, sellerLineIds: string[], amountCents: number, now: Date,
+) {
+  const terms = await ensureFeeTerms(tx, orderId, now);
+  const mine = all.filter((l) => sellerLineIds.includes(l.id));
+  const agreed = spreadAmount(mine, amountCents);
+  const lines = inFeeOrder(all).map((l) => ({ id: l.id, lineTotalCents: agreed.get(l.id) ?? l.lineTotalCents }));
+  const seller = sellerStatementFor("DEAL", terms, lines, sellerLineIds);
+  const sponsor = sponsorOrderStatement("DEAL", {
+    subtotalCents: amountCents,
+    buyerFee: { rateBps: terms.buyerFeeBps, amountCents: orderQuote(amountCents, terms.buyerFeeBps).feesCents },
+    processing: { rateBps: terms.processing.bps, fixedCents: terms.processing.fixedCents, amountCents: seller.processing.amountCents },
+  });
+  return { sponsor, seller };
+}
+
 export async function openDealAgreement(tx: Tx, input: OpenDealInput, now = new Date(), by: AuditActor | null = null) {
   if (!Number.isInteger(input.amountCents) || input.amountCents < 0) throw new DealAgreementError("The amount must be a whole number of cents, 0 or more.", 422);
   const order = await tx.marketplaceOrder.findUnique({
@@ -148,6 +174,9 @@ export async function openDealAgreement(tx: Tx, input: OpenDealInput, now = new 
   const forms: DealForm[] = formsFor(await kindsOf(tx, lines));
   const { seller, tenantId: sellerTenantId } = await sellerFacts(tx, input.seller);
   const originalAmountCents = lines.reduce((s, l) => s + l.lineTotalCents, 0);
+  /* POL-BE-119 — both sides' fee statements on the agreed amount, written into the agreement
+     ({{fees}}), so signing it is accepting them in writing. */
+  const fees = await dealFees(tx, order.id, order.lines, lines.map((l) => l.id), input.amountCents, now);
   const body = renderDealAgreement(template.body, {
     forms: forms.length ? forms : ["PLACEMENT"],
     sponsorName: sponsor?.name ?? "The Sponsor",
@@ -159,6 +188,7 @@ export async function openDealAgreement(tx: Tx, input: OpenDealInput, now = new 
     specialTerms: input.specialTerms,
     amountCents: input.amountCents,
     originalAmountCents,
+    fees: dealFeesWords(fees.sponsor, fees.seller),
   });
 
   const withdrawn = await tx.dealAgreement.updateMany({
@@ -174,6 +204,7 @@ export async function openDealAgreement(tx: Tx, input: OpenDealInput, now = new 
         : { propertyId: input.seller.propertyId, propertyTenantId: sellerTenantId }),
       lineIds: lines.map((l) => l.id), agreementId: template.agreementId, forms: forms.length ? forms : ["PLACEMENT"],
       body, bodyHash: hashAgreementBody(body), amountCents: input.amountCents, originalAmountCents,
+      feeStatements: { sponsor: presentStatement(fees.sponsor), seller: presentStatement(fees.seller) } as unknown as Prisma.InputJsonValue,
     },
     select: { id: true, bodyHash: true },
   });
@@ -305,6 +336,8 @@ export async function signDealAgreement(actor: Actor, id: string, input: SignInp
     const side = sideOf(actor, r);
     if (!side) throw new ForbiddenError("dealAgreement", "write");
     if (side === "SELLER" && r.athleteId) await assertMayCommit(tx, actor, "accept");
+    /* POL-BE-120 — a team signing as the seller is on the seller terms in force. */
+    if (side === "SELLER" && r.propertyId) await assertSellerTermsCurrent(tx, actor);
     const field = side === "SPONSOR" ? "sponsorAcceptanceId" : "sellerAcceptanceId";
     if (r[field]) throw new DealAgreementError("You have already signed this agreement.");
     /* 2S4-BE-16 — checked again right before the signature: the chat is all green and posted this form (owner, 2026-11-18). */
@@ -345,34 +378,14 @@ function sideOf(actor: Actor, r: { tenantId: string; sponsorId: string; athleteI
 
 /* ── the download ──────────────────────────────────────────────────────── */
 
-const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const STATE_WORDS: Record<DealState, string> = {
-  OPEN: "Waiting for signatures",
-  SIGNED: "Signed by both sides",
-  WITHDRAWN: "Replaced by a newer form — not in force",
-};
-
-/** The PDF's page: the exact signed text, then who signed and when, and its fingerprint. Pure. */
-export function dealAgreementHtml(v: DealAgreementView): string {
-  const when = (iso: string | null) => (iso ? `${iso.slice(0, 16).replace("T", " ")} UTC` : null);
-  const sponsor = when(v.sponsorSignedAt);
-  const seller = when(v.sellerSignedAt);
-  const lines = [
-    `Status: ${STATE_WORDS[v.state]}`,
-    sponsor ? `Signed for the Sponsor on ${sponsor}` : "Not yet signed by the Sponsor",
-    seller ? `Signed ${v.signedByGuardian ? "by the Seller's parent or guardian" : "by the Seller"} on ${seller}` : "Not yet signed by the Seller",
-    `Amount: ${usdOf(v.amountCents)}`,
-    `Fingerprint (SHA-256 of the text above): ${v.bodyHash}`,
-  ];
-  return `<!doctype html><html><head><meta charset="utf-8"><title>SponsorX deal agreement ${escapeHtml(v.orderRef)}</title>
-<style>body{font:11pt/1.5 Georgia,serif;color:#111;margin:0}pre{white-space:pre-wrap;font:inherit;margin:0 0 24pt}
-.sig{border-top:1px solid #999;padding-top:10pt;font:9.5pt/1.6 Helvetica,Arial,sans-serif;color:#333}.sig p{margin:0}</style></head>
-<body><pre>${escapeHtml(v.body)}</pre><div class="sig">${lines.map((l) => `<p>${escapeHtml(l)}</p>`).join("")}</div></body></html>`;
-}
+/* The page itself — the exact signed text laid out as a designed document — is deal-agreement-page.ts. */
+export { dealAgreementHtml } from "./deal-agreement-page";
 
 /** GET /deal-agreements/:id/download — the PDF, to its two sides and BTG, at any time. */
 export async function dealAgreementPdf(actor: Actor, id: string): Promise<{ filename: string; pdf: Buffer }> {
   const v = await readDealAgreement(actor, id);
   const { renderPdf } = await import("./report-render");
-  return { filename: `SponsorX-deal-agreement-${v.orderRef}.pdf`, pdf: await renderPdf(dealAgreementHtml(v)) };
+  const { dealAgreementHtml, dealAgreementFooter, DEAL_PDF_MARGIN } = await import("./deal-agreement-page");
+  const pdf = await renderPdf(dealAgreementHtml(v), { footerTemplate: dealAgreementFooter(v), margin: DEAL_PDF_MARGIN });
+  return { filename: `SponsorX-deal-agreement-${v.orderRef}.pdf`, pdf };
 }

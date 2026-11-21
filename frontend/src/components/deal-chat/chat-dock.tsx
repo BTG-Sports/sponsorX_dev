@@ -11,7 +11,7 @@ import { DEAL_LIST_POLL_MS, chatRow, messagesHref, unreadTotal, type ApiDealChat
 import { ChatAvatar, Glyph, IconButton } from "./chat-bits";
 import { ChatList } from "./chat-list";
 import { ChatPane } from "./chat-pane";
-import { onDealSocket } from "./deal-socket";
+import { onDealInbox } from "./deal-socket";
 import { DEAL_CHANGED, DEAL_OPEN, useChatRows } from "./use-deal-chat";
 
 import "./deal-chat.css";
@@ -83,8 +83,8 @@ export function ChatDock({ viewer, unread: unreadAtLoad, sample }: {
       soon = setTimeout(ask, 800);
     };
     window.addEventListener(DEAL_CHANGED, changed);
-    /* Live: the number moves the moment a message arrives, on whatever page the person is. */
-    const off = onDealSocket(changed);
+    /* Live, while the Messages button is on screen (the inbox pass): the number moves the moment a message arrives. */
+    const off = onDealInbox(changed);
     return () => {
       live = false;
       clearInterval(beat);

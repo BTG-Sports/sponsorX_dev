@@ -163,7 +163,13 @@ export function reportKey(campaignId: string, at: Date): string {
  * build does not run on musl); unset, playwright-core uses its own download,
  * as in local development and CI.
  */
-export async function renderPdf(html: string): Promise<Buffer> {
+export type PdfOptions = {
+  /** Printed at the foot of every page (Chromium fills `pageNumber` / `totalPages`); static markup only. */
+  footerTemplate?: string;
+  margin?: { top: string; right: string; bottom: string; left: string };
+};
+
+export async function renderPdf(html: string, opts: PdfOptions = {}): Promise<Buffer> {
   const { chromium } = await import("playwright-core");
   const browser = await chromium.launch({
     ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}),
@@ -180,7 +186,11 @@ export async function renderPdf(html: string): Promise<Buffer> {
     /* No network: the HTML is self-contained, and a report must not fetch. */
     await page.route("**/*", (route) => route.abort());
     await page.setContent(html, { waitUntil: "load" });
-    return Buffer.from(await page.pdf({ format: "A4", printBackground: true }));
+    return Buffer.from(await page.pdf({
+      format: "A4", printBackground: true,
+      ...(opts.margin ? { margin: opts.margin } : {}),
+      ...(opts.footerTemplate ? { displayHeaderFooter: true, headerTemplate: "<span></span>", footerTemplate: opts.footerTemplate } : {}),
+    }));
   } finally {
     await browser.close();
   }

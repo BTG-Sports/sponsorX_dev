@@ -53,8 +53,14 @@ async function wardHeader(): Promise<Record<string, string>> {
  *  things to show someone. */
 export type ActorResult =
   | { status: "anonymous" }
-  | { status: "unprovisioned" }
+  | { status: "unprovisioned"; pending?: PendingApplication | null }
   | { status: "linked"; actor: Actor };
+
+/** POL-BE-118 — what a signed-in address with no login applied for, and
+    where it stands (backend domain/pending-application.ts). */
+export type PendingApplication =
+  | { kind: "sponsor"; state: string; businessName: string; missing: string[]; underReview: boolean; statusPath: string }
+  | { kind: "athlete"; state: string; displayName: string };
 
 /** Server-side only. The API is reached over Railway's private network in
  *  production, so this is deliberately not a NEXT_PUBLIC_ variable — the
@@ -90,7 +96,11 @@ export const fetchActor = cache(async function fetchActor(): Promise<ActorResult
   });
 
   if (response.status === 401) return { status: "anonymous" };
-  if (response.status === 403) return { status: "unprovisioned" };
+  if (response.status === 403) {
+    /* POL-BE-118 — the refusal says what this address applied for, when it did. */
+    const body = (await response.json().catch(() => null)) as { error?: { pending?: PendingApplication } } | null;
+    return { status: "unprovisioned", pending: body?.error?.pending ?? null };
+  }
 
   if (!response.ok) {
     /* Anything else is the API being broken, and must not be reported to the

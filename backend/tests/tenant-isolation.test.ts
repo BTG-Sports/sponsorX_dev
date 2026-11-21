@@ -334,6 +334,7 @@ const BODY: Record<string, unknown> = {
   "POST /rewards/{id}/transition": { to: "PAUSED" },
   "POST /rewards/{id}/tokens": { athleteId: A.athlete },
   "POST /campaigns/{id}/launch": {},
+  "POST /campaigns/{id}/price/confirm": { feeStatementHash: `sha256:${"0".repeat(64)}` },
   /* P4-BE-12 — turning automatic staffing off is a valid body for any campaign. */
   "POST /campaigns/{id}/auto-staffing": { on: false, reason: "cross-tenant" },
   "POST /publications": { name: "TI B masthead", propertyId: null },
@@ -364,6 +365,8 @@ const BODY: Record<string, unknown> = {
   /* P9-BE-25 */
   "POST /editions/{id}/assets/uploads": { contentType: "video/mp4", bytes: 12_345 },
   "PUT /edition-assets/{id}/file": { r2Key: "edition-content/ti_tenant_a/x/y" },
+  /* POL-BE-116 */
+  "PUT /campaigns/{id}/order-details": { orderDetails: { version: 1, prompt: "Stolen", publishWindow: { start: "2026-12-01", end: "2026-12-20" }, jobs: [{ jobId: "SX-02", media: { format: "SINGLE_IMAGE", images: 1, platform: "INSTAGRAM", caption: null, daysLive: 30 } }], usage: { channels: ["INSTAGRAM"], periodDays: 30, territory: "US", restrictions: null }, paidMedia: { included: false }, exclusivity: { included: false }, disclosures: ["#ad"], sponsorApproval: false, paymentTiming: { daysAfterVerified: 30 }, nonCash: null } },
   /* P9-BE-27 */
   "POST /editions/{id}/cover/uploads": { contentType: "image/png", bytes: 1_234 },
   "PUT /editions/{id}/cover": { r2Key: "edition-files/ti_tenant_a/x/cover/y" },
@@ -398,6 +401,8 @@ const BODY: Record<string, unknown> = {
   "POST /listings": { inventoryItemId: A.schoolItem, title: "Stolen listing" },
   "PATCH /listings/{id}": { title: "Renamed" },
   "POST /listings/{id}/transition": { to: "ARCHIVED" },
+  "POST /listings/{id}/accept-fees": { feeStatementHash: `sha256:${"0".repeat(64)}` },
+  "POST /seller-terms/accept": { agreementId: "none", bodyHashShown: "sha256:none" },
   "POST /listings/{id}/decision": { decision: "APPROVE" },
   /* 2S3-BE-06 — BTG pauses or ends a live listing, with a reason. */
   "POST /listings/{id}/btg-action": { action: "PAUSE", reason: "Isolation sweep" },

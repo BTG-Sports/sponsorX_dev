@@ -8,12 +8,13 @@ import { useDialogFocus } from "@/components/use-dialog-focus";
 import { useMounted } from "@/components/use-mounted";
 import { loadDealAgreementAction, reportDealMessageAction, signDealAgreementAction } from "@/server/deal-chat-actions";
 import {
-  agreementHref, confirmationsFor, dealUsd, isEnded, otherSide, sideName, signedWords,
+  confirmationsFor, dealUsd, isEnded, otherSide, sideName, signedWords,
   type ApiDealAgreement, type ApiDealChat, type DealViewer,
 } from "@/lib/deal-chat";
 
 import { SAMPLE_NOTE, sampleAgreement } from "@/lib/deal-chat-sample";
 
+import { AgreementDownload } from "./agreement-download";
 import { Glyph } from "./chat-bits";
 
 /* --------------------------------------------------------------------------
@@ -153,9 +154,9 @@ export function AgreementDialog({ chat, viewer, onClose, onSigned, sample = fals
 
           <footer className="sx-dc-agr-foot">
             {agreement && !sample && (
-              <a className={btn.quiet} href={agreementHref(agreement.id)}>
+              <AgreementDownload id={agreement.id} className={btn.quiet}>
                 <Glyph name="download" size={16} className="mr-1.5" />Download PDF
-              </a>
+              </AgreementDownload>
             )}
             <span className="grow" />
             <button type="button" className={btn.quiet} onClick={onClose}>Close</button>

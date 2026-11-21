@@ -996,6 +996,12 @@ model CampaignBrief {
   audienceTiers        String[]   @default([])
   /// 3S3-BE-01 — the smallest audience wanted: followers on the athlete's largest account. Null: no minimum.
   audienceMinFollowers Int?
+  /// POL-BE-116 — the athlete order details the sponsor builds with the
+  /// brief (order-details-rules.ts): the template's fields and each job's
+  /// medium. Copied to the campaign it becomes. Null: BTG's standard terms.
+  orderDetails         Json?
+  /// The three letters its orders are numbered with (SX-<code>-<year>-<n>).
+  orderCode            String?
   state                BriefState @default(DRAFT)
   /// P4-FE-07 — why BTG closed it; null unless CLOSED.
   closeReason          String?
@@ -1039,6 +1045,16 @@ model Campaign {
   budget          Int
   startDate       DateTime
   endDate         DateTime
+  /// POL-BE-116 — every athlete order's details (order-details-rules.ts),
+  /// copied onto each offer and order for its job, fixed when sent.
+  orderDetails       Json?
+  /// POL-BE-119 — the sponsor's confirmation of the campaign price before launch:
+  /// {priceCents, athletes, record: {statement, hash, shown}, confirmedAt, confirmedBy, ip, userAgent}.
+  priceConfirmation  Json?
+  /// The three letters its orders are numbered with, unique in the tenant
+  /// for the year it was set (`orderCodeYear`).
+  orderCode          String?
+  orderCodeYear      Int?
   /// 3S4-BE-01 — what the campaign is promised to reach by its end date, set
   /// by BTG: impressions | engagements | redemptions | deliverables, and how
   /// many. Unset: every deliverable booked, published and verified (user,
@@ -1098,6 +1114,7 @@ model Campaign {
   staffingSkips    CampaignStaffingSkip[]
 
   @@index([tenantId, state])
+  @@unique([tenantId, orderCode, orderCodeYear])
 }
 
 /// P4-BE-12 — an athlete automatic staffing passed over on a campaign,
@@ -1167,6 +1184,12 @@ model CampaignOrder {
   usageRights  String
   exclusivity  String?
   dueDate      DateTime
+  /// POL-BE-116 — SX-<campaign code>-<year>-<sequence>, unique in the tenant.
+  orderNumber  String?
+  /// POL-BE-116 — the order's details, as the athlete accepted them.
+  orderDetails Json?
+  /// POL-BE-119 — the fee statement the athlete accepted with the order: {statement, hash, shown}.
+  feeStatement Json?
 
   /// What we expected this line to reach, FROZEN AT CREATION — P7-DATA-03.
   ///
@@ -1204,6 +1227,7 @@ model CampaignOrder {
   /// P8-BE-03 — a complaint pauses the order while one is open.
   disputes     DealDispute[]
 
+  @@unique([tenantId, orderNumber])
   @@unique([campaignId, athleteId, jobId])
   @@index([tenantId, state])
 }
@@ -1599,6 +1623,9 @@ model Earning {
   taxYear               Int
   paidAt                DateTime?
   reference             String?
+  /// POL-BE-116 — the day BTG pays by: when it became ELIGIBLE plus the
+  /// order's payment timing (30 days where the order has none).
+  payBy                 DateTime?
   /// 2S5-BE-08 — moved to APPROVED_FOR_PAYOUT by the rule as it became
   /// ELIGIBLE (false once Finance approves it by hand). `autoApprovedAt` is
   /// never cleared: the athlete's 7-day automatic total counts it.
@@ -2886,6 +2913,10 @@ model Listing {
   btgReason              String?
   btgActedAt             DateTime?
   btgActedBy             String?
+  /// POL-BE-119 — the fee statement the seller accepted when submitting (or resuming) the listing, and the
+  /// rates it was worked out from: {record: {statement, hash, shown}, rates, acceptedAt, acceptedBy}. An order
+  /// whose frozen rates differ asks the seller to accept it with its own statement.
+  feeAcceptance          Json?
   createdBy              String?
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @default(now()) @updatedAt
@@ -2932,6 +2963,8 @@ model Offer {
   exclusivityDays Int?
   /// The disclosures the content must carry, e.g. "#ad", "Paid partnership".
   disclosures     String[]
+  /// POL-BE-116 — the order details for this job, fixed (and hashed) when sent.
+  orderDetails    Json?
   expiresAt       DateTime
   state           OfferState @default(DRAFT)
   sentAt          DateTime?
@@ -3226,6 +3259,9 @@ model MarketplaceOrder {
   billingName          String?
   billingEmail         String?
   billingReference     String?
+  /// POL-BE-119 — the commission rates frozen when the order was placed, and the sponsor's accepted
+  /// fee statement (fee-statement.ts OrderFeeTerms). Write-once; the ledger books from it.
+  feeTerms             Json?
   /// 2S4-BE-09 — the sponsor's spending limit when the order was placed: the
   /// figure it was checked against (computed from their own orders —
   /// spending-limit.ts). Above it, the order waits for BTG.
@@ -3700,6 +3736,8 @@ model OrderSellerApproval {
   decidedBy        String?
   /// The decline reason — the sponsor reads it.
   reason           String?
+  /// POL-BE-119 — the fee statement the seller accepted with the order: {statement, hash, shown}.
+  feeStatement     Json?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @default(now()) @updatedAt
 
@@ -4831,6 +4869,17 @@ model PipelineRun {
   @@unique([day, step])
 }
 
+/// POL-BE-116 — the last order number used per campaign code and year
+/// (SX-<code>-<year>-<sequence>), counted up in the order's transaction.
+model OrderNumberCounter {
+  tenantId String
+  code     String
+  year     Int
+  last     Int    @default(0)
+
+  @@id([tenantId, code, year])
+}
+
 /// POL-BE-113 — the live storage check: whether a browser on the website
 /// can upload to each storage area. The worker runs it when it starts (so
 /// after every deploy) and every 24 hours: a preflight as the website, a
@@ -5334,6 +5383,8 @@ model DealAgreement {
   bodyHash            String
   /// The final amount both sides typed, and the order's amount for these lines before it.
   amountCents         Int
+  /// POL-BE-119 — both sides' fee statements, as written into the body ({{fees}}).
+  feeStatements       Json?
   originalAmountCents Int
   /// OPEN (waiting for signatures) | SIGNED | WITHDRAWN
   state               String    @default("OPEN")

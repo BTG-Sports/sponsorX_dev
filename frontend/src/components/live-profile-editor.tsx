@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Dropdown } from "@/components/filter-kit";
+import { PlacePicker } from "@/components/place-picker";
 import { Badge } from "@/components/ui";
 import { SECTIONS, type SectionKey } from "@/lib/profile-sections";
+import { placeRegion } from "@/lib/places";
 import type { SectionState } from "@/lib/profile-live";
 import { BRAND_CATEGORIES, categoryLabel } from "@/lib/brand-categories";
 import { CONTENT_CAPABILITIES, capabilityLabel } from "@/lib/content-capabilities";
@@ -77,6 +79,8 @@ export type EditableProfile = {
   displayName: string;
   city: string | null;
   stateCode: string | null;
+  /** POL-FE-117 — the country the region and city belong to; US when absent. */
+  countryCode?: string;
   sport: string;
   position: string | null;
   school: string | null;
@@ -131,6 +135,7 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
     displayName: profile?.displayName ?? "",
     city: profile?.city ?? "",
     stateCode: profile?.stateCode ?? "",
+    countryCode: profile?.countryCode ?? "US",
     sport: profile?.sport ?? "",
     position: profile?.position ?? "",
     school: profile?.school ?? "",
@@ -202,7 +207,7 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
           : {};
         const idDocument = "legalName" in legal && idFile ? { idDocument: { filename: idFile.name, contentType: idFile.type, bytes: idFile.size } } : {};
         return {
-          identity: { displayName: form.displayName.trim(), city: opt(form.city), stateCode: form.stateCode.trim().toUpperCase(), ...legal, ...birth },
+          identity: { displayName: form.displayName.trim(), city: opt(form.city), stateCode: form.stateCode.trim().toUpperCase(), countryCode: form.countryCode || "US", ...legal, ...birth },
           ...guardian, ...idDocument, ...note,
         };
       }
@@ -227,7 +232,7 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
   const legalChanging = Boolean(profile && legalNameNeedsId(profile.legalName, form.legalName));
   const sectionValid = (k: SectionKey) =>
     k === "identity"
-      ? form.displayName.trim().length > 0 && /^[A-Za-z]{2}$/.test(form.stateCode.trim()) && (!legalChanging || Boolean(idFile))
+      ? form.displayName.trim().length > 0 && placeRegion(form.countryCode || "US", form.stateCode) !== null && (!legalChanging || Boolean(idFile))
       : k === "sport"
         ? form.sport.trim().length > 0 && (form.gradYear === "" || /^\d{4}$/.test(form.gradYear))
         : true;
@@ -363,14 +368,19 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
                 <p className="mt-1 normal-case tracking-normal text-muted">Not needed — you&rsquo;re an adult.</p>
               )}
             </div>
-            <label className="block text-[10px] uppercase tracking-wide text-faint">
-              City
-              <input value={form.city} onChange={(e) => set("city", e.target.value)} maxLength={80} className={`${INPUT_CLS} mt-1 normal-case tracking-normal`} />
-            </label>
-            <label className="block text-[10px] uppercase tracking-wide text-faint">
-              State (2 letters)
-              <input value={form.stateCode} onChange={(e) => set("stateCode", e.target.value)} maxLength={2} className={`${INPUT_CLS} mt-1 tracking-normal`} />
-            </label>
+            {/* POL-FE-117 — Country → Region → City, picked and searchable, never typed. */}
+            <PlacePicker
+              idPrefix="sx-lpe-place"
+              value={{ countryCode: form.countryCode, regionCode: form.stateCode, city: form.city }}
+              onChange={(p) => setForm((f) => ({ ...f, countryCode: p.countryCode, stateCode: p.regionCode, city: p.city }))}
+              field={({ key, id, label, hint, children }) => (
+                <div key={key} className="min-w-0">
+                  <label htmlFor={id} className="block text-[10px] uppercase tracking-wide text-faint">{label}</label>
+                  <div className="mt-1">{children}</div>
+                  {hint && <p className="mt-1 text-[10px] text-faint">{hint}</p>}
+                </div>
+              )}
+            />
           </div>
         );
       case "sport":

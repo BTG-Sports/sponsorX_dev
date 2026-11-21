@@ -249,11 +249,12 @@ describe.skipIf(!hasDatabase)("2S1-BE-14 · profile edits without BTG review", {
     await prisma.ageOfMajority.create({ data: { tenantId: T, countryCode: "US", regionCode: "AL", age: 14 } });
     const r = await call("POST", "/athletes/pe_kai/profile-changes", "pe_kai", { identity: { stateCode: "AL", city: "Mobile" } });
     expect(r.status, r.text).toBe(201);
+    /* POL-BE-117 — the city waits with the move: applied alone it would file
+       an Alabama city under the old state if BTG declines. */
     expect(r.json.changes).toEqual([
-      expect.objectContaining({ state: "APPROVED" }),
-      expect.objectContaining({ state: "PENDING", fields: { stateCode: "AL" } }),
+      expect.objectContaining({ state: "PENDING", fields: { stateCode: "AL", city: "Mobile" } }),
     ]);
-    expect(await prisma.athlete.findUniqueOrThrow({ where: { id: "pe_kai" }, select: { city: true, stateCode: true } })).toMatchObject({ city: "Mobile" });
+    expect(await prisma.athlete.findUniqueOrThrow({ where: { id: "pe_kai" }, select: { city: true, stateCode: true } })).toMatchObject({ city: null });
     expect((await prisma.athlete.findUniqueOrThrow({ where: { id: "pe_kai" }, select: { stateCode: true } })).stateCode).not.toBe("AL");
     /* An adult in the making can't also name a guardian. */
     const both = await call("POST", "/athletes/pe_riley/profile-changes", "pe_riley", { identity: { birthDate: "2000-01-01" }, guardian: { legalName: "Y", email: "pe_y@pe-test.invalid", relationship: "PARENT" } });

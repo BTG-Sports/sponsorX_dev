@@ -1,5 +1,6 @@
 import type { SectionKey } from "@/lib/profile-sections";
 import type { ApiMyProfile, SectionState } from "@/lib/profile-live";
+import { placeRegion, placeWords, regionLabel } from "@/lib/places";
 
 /* --------------------------------------------------------------------------
    /athlete/profile as a step-by-step wizard (POL-FE-80, 2026-11-16).
@@ -123,6 +124,8 @@ export type WizardForm = {
   displayName: string;
   city: string;
   stateCode: string;
+  /** POL-FE-117 — picked with the region and city (lib/places). */
+  countryCode: string;
   sport: string;
   position: string;
   school: string;
@@ -142,10 +145,12 @@ export function stepNeeds(key: WizardKey, f: WizardForm, rows: readonly SocialRo
   switch (key) {
     case "identity": {
       const name = f.displayName.trim().length > 0;
-      const state = /^[A-Za-z]{2}$/.test(f.stateCode.trim());
-      if (!name && !state) return "Add your display name and your state to continue.";
+      /* POL-FE-117 — a region of the chosen country, from the list. */
+      const state = placeRegion(f.countryCode || "US", f.stateCode) !== null;
+      const where = regionLabel(f.countryCode || "US").toLowerCase();
+      if (!name && !state) return `Add your display name and choose your ${where} to continue.`;
       if (!name) return "Add the name sponsors should see.";
-      if (!state) return "Add your state as two letters, like TX.";
+      if (!state) return `Choose your ${where} from the list.`;
       return null;
     }
     case "sport":
@@ -177,6 +182,7 @@ export function formFrom(p: ApiMyProfile): WizardForm {
     displayName: p.displayName ?? "",
     city: p.city ?? "",
     stateCode: p.stateCode ?? "",
+    countryCode: p.countryCode ?? "US",
     sport: p.sport ?? "",
     position: p.position ?? "",
     school: p.school ?? "",
@@ -205,7 +211,7 @@ export function stepChanged(key: WizardKey, f: WizardForm, base: WizardForm, row
   const t = (s: string) => s.trim();
   switch (key) {
     case "identity":
-      return t(f.displayName) !== t(base.displayName) || t(f.city) !== t(base.city) || t(f.stateCode).toUpperCase() !== t(base.stateCode).toUpperCase();
+      return t(f.displayName) !== t(base.displayName) || t(f.city) !== t(base.city) || t(f.stateCode).toUpperCase() !== t(base.stateCode).toUpperCase() || f.countryCode !== base.countryCode;
     case "sport":
       return (["sport", "position", "school", "level", "gradYear", "achievements"] as const).some((k) => t(f[k]) !== t(base[k]));
     case "socials":
@@ -229,7 +235,7 @@ export function changeBody(key: WizardKey, f: WizardForm): Record<string, unknow
   const opt = (s: string) => (s.trim() === "" ? null : s.trim());
   switch (key) {
     case "identity":
-      return { identity: { displayName: f.displayName.trim(), city: opt(f.city), stateCode: f.stateCode.trim().toUpperCase() } };
+      return { identity: { displayName: f.displayName.trim(), city: opt(f.city), stateCode: f.stateCode.trim().toUpperCase(), countryCode: f.countryCode || "US" } };
     case "sport":
       return {
         sport: {
@@ -289,7 +295,8 @@ export function metaLine(f: Pick<PublicFace, "sport" | "position" | "level">): s
   return [f.sport, f.position, f.level ? words(f.level) : null].filter(Boolean).join(" · ");
 }
 
-/** "Lincoln High · Austin, TX" — school and place, as the public page writes it. */
-export function placeLine(f: Pick<PublicFace, "school" | "city" | "stateCode">): string {
-  return [f.school, [f.city, f.stateCode].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
+/** "Lincoln High · Austin, TX" — school and place, as the public page writes it;
+    "Arusha, Tanzania" outside the US (POL-FE-117). */
+export function placeLine(f: Pick<PublicFace, "school" | "city" | "stateCode"> & { countryCode?: string | null }): string {
+  return [f.school, placeWords(f)].filter(Boolean).join(" · ");
 }

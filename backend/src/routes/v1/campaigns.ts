@@ -55,6 +55,13 @@ import {
   AthleteRateInput, AthleteTierInput, CampaignOrderInput,
   OrderAcceptanceInput, OrderTransitionInput,
 } from "../../contracts/campaign";
+import { builderCatalogue, readCampaignOrderDetails, setCampaignOrderDetails, storedOrderDetails } from "../../domain/campaign-order-details";
+import { suggestOrderCode } from "../../domain/order-details-rules";
+import { CampaignOrderDetailsInput, OrderCodeQuery } from "../../contracts/campaign";
+import { presentStatement } from "../../domain/fee-statement";
+import { athleteStatement, type FeeStatementRecord } from "../../domain/fee-statement-rules";
+import { confirmCampaignPrice, getCampaignPrice } from "../../domain/campaign-price";
+import { CampaignPriceConfirmInput } from "../../contracts/campaign";
 
 export const campaignsRouter = Router();
 
@@ -1204,6 +1211,33 @@ const campaignOps: RequestHandler<{ id: string }> = async (req, res) => {
   });
 };
 
+/** POL-BE-116 — whoever builds a campaign (a sponsor's brief, or BTG) reads the catalogue. */
+const builderCatalogueRoute: RequestHandler = async (req, res) => {
+  const actor = req.actor!;
+  if (!can(actor, "campaignBrief", "write") && !can(actor, "campaign", "write")) throw new ForbiddenError("campaignBrief", "write");
+  res.json(builderCatalogue());
+};
+const orderCodeRoute: RequestHandler = async (req, res) => {
+  const actor = req.actor!;
+  if (!can(actor, "campaignBrief", "write") && !can(actor, "campaign", "write")) throw new ForbiddenError("campaignBrief", "write");
+  const name = OrderCodeQuery.parse(req.query).name;
+  res.json({ name, orderCode: suggestOrderCode(name) });
+};
+const readOrderDetailsRoute: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await readCampaignOrderDetails(req.actor!, req.params.id));
+};
+const setOrderDetailsRoute: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await setCampaignOrderDetails(req.actor!, req.params.id, CampaignOrderDetailsInput.parse(req.body ?? {})));
+};
+
+/** POL-BE-116 — an order's details for this reader: paid media's extra pay is the athlete's pay, so it rides only where compensation does. */
+function orderDetailsFor(actor: Actor, value: unknown) {
+  const d = storedOrderDetails(value);
+  if (!d || canReadField(actor.roles, "campaignOrder.compensation") || !d.paidMedia.included) return d;
+  const { extraCompensationCents: _hidden, ...paid } = d.paidMedia;
+  return { ...d, paidMedia: paid };
+}
+
 /**
  * GET /orders/:id — one Campaign Order, as the person who signs it reads it
  * (P5-FE-01, §24, §12).
@@ -1222,6 +1256,7 @@ const readOrder: RequestHandler<{ id: string }> = async (req, res) => {
     select: {
       id: true, state: true, compensation: true, sellPrice: true, usageRights: true,
       exclusivity: true, dueDate: true, acceptedAt: true, jobId: true, tenantId: true,
+      orderNumber: true, orderDetails: true, feeStatement: true,
       job: { select: { name: true } },
       campaign: { select: { id: true, name: true, startDate: true, endDate: true, sponsor: { select: { name: true } } } },
       athlete: {
@@ -1264,12 +1299,22 @@ const readOrder: RequestHandler<{ id: string }> = async (req, res) => {
       endDate: order.campaign.endDate.toISOString(),
     },
     athlete: { id: order.athlete.id, displayName: order.athlete.displayName },
+    /* POL-BE-116 — the order as the template lays it out: its number and every detail. */
+    orderNumber: order.orderNumber,
+    orderDetails: orderDetailsFor(actor, order.orderDetails),
     usageRights: order.usageRights,
     exclusivity: order.exclusivity,
     dueDate: order.dueDate.toISOString(),
     acceptedAt: order.acceptedAt?.toISOString() ?? null,
     ...(canReadField(actor.roles, "campaignOrder.compensation") ? { compensation: order.compensation } : {}),
     ...(canReadField(actor.roles, "campaignOrder.sellPrice") ? { sellPrice: order.sellPrice } : {}),
+    /* POL-BE-119 — the fee statement accepting it accepts (or accepted): the transaction fee, who pays
+       it and the processing cost, in figures and words. It names the compensation, so it rides where that does. */
+    ...(canReadField(actor.roles, "campaignOrder.compensation")
+      ? (order.feeStatement as FeeStatementRecord | null)?.statement
+        ? { feeStatement: (order.feeStatement as FeeStatementRecord).statement, feeStatementHash: (order.feeStatement as FeeStatementRecord).hash }
+        : presentStatement(athleteStatement(order.compensation))
+      : {}),
     guardian: {
       status: readiness.status,
       /* The guardian's name is shown to the athlete and to BTG — it's their
@@ -1368,6 +1413,7 @@ const accept: RequestHandler<{ id: string }> = async (req, res) => {
     await acceptOrder(req.actor!, req.params.id, {
       agreementId: body.agreementId,
       bodyHashShown: body.bodyHashShown,
+      feeStatementHash: body.feeStatementHash,
       /* The signer's, forwarded by the web server — not the web server's. */
       ip: clientIp(req) ?? "",
       userAgent: clientUserAgent(req) ?? "",
@@ -1391,6 +1437,11 @@ campaignsRouter.get("/campaigns/summary", requireActor, campaignSummary);
 campaignsRouter.get("/campaigns/:id", requireActor, readCampaign);
 campaignsRouter.get("/campaigns/:id/ops", requireActor, campaignOps);
 campaignsRouter.get("/orders/:id", requireActor, readOrder);
+/* POL-BE-116 — the campaign builder: its catalogue, a code for a name, and a campaign's order details. */
+campaignsRouter.get("/campaign-builder/catalogue", requireActor, builderCatalogueRoute);
+campaignsRouter.get("/campaign-builder/order-code", requireActor, orderCodeRoute);
+campaignsRouter.get("/campaigns/:id/order-details", requireActor, readOrderDetailsRoute);
+campaignsRouter.put("/campaigns/:id/order-details", requireActor, setOrderDetailsRoute);
 campaignsRouter.get("/briefs/:id", requireActor, readBrief);
 campaignsRouter.patch("/briefs/:id", requireActor, editBrief);
 campaignsRouter.post("/briefs/:id/transition", requireActor, moveBrief);
@@ -1398,6 +1449,12 @@ campaignsRouter.get("/briefs/:id/eligible-athletes", requireActor, shortlist);
 campaignsRouter.post("/briefs/:id/campaign", requireActor, createCampaign);
 campaignsRouter.post("/campaigns/:id/transition", requireActor, moveCampaign);
 campaignsRouter.post("/campaigns/:id/launch", requireActor, launch);
+/* POL-BE-119 — the sponsor confirms a fully staffed campaign's price, with its fee statement, before launch. */
+campaignsRouter.get("/campaigns/:id/price", requireActor, (async (req, res) => { res.json(await getCampaignPrice(req.actor!, req.params.id)); }) as RequestHandler<{ id: string }>);
+campaignsRouter.post("/campaigns/:id/price/confirm", requireActor, (async (req, res) => {
+  const b = CampaignPriceConfirmInput.parse(req.body ?? {});
+  res.json(await confirmCampaignPrice(req.actor!, req.params.id, { feeStatementHash: b.feeStatementHash, ip: clientIp(req) ?? "", userAgent: clientUserAgent(req) ?? "" }));
+}) as RequestHandler<{ id: string }>);
 campaignsRouter.post("/campaigns/:id/auto-staffing", requireActor, autoStaffing);
 campaignsRouter.post("/campaigns/:id/invitations", requireActor, invite);
 campaignsRouter.post("/invitations/:id/respond", requireActor, respond);

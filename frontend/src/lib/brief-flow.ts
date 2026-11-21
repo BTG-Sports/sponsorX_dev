@@ -17,6 +17,7 @@
 
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "./brand-categories";
 import { marketplacePackages } from "./fixtures";
+import { placeRegion, placeWords, regionLabel, type Place } from "./places";
 
 export const GOALS = [
   "Awareness",
@@ -102,9 +103,8 @@ export const BRIEF_STEPS: BriefStepDef[] = [
     label: "Where",
     heading: "Where are your customers?",
     sub: "We match you with athletes near them. Today the network is strongest around Washington, DC, Maryland and Virginia, with a hub in Kigali.",
-    fields: [
-      { key: "market", label: "City or region", placeholder: "Silver Spring, MD", required: true },
-    ],
+    /* POL-FE-117 — picked, not typed: Country → State or region → City (optional). */
+    fields: [],
   },
   {
     id: "contact",
@@ -175,8 +175,7 @@ export const MORE_BUSINESS_TYPES: readonly BusinessType[] = BUSINESS_TYPES.filte
 
 /** The audiences this product actually reaches — high-school and college
     athletes' followings and event crowds (§4, §16). Optional on the form.
-    Market stays free text: a sponsor outside today's network is still a
-    lead BTG wants to see, not an input error. */
+    The market itself is picked from the place catalogue (POL-FE-117, below). */
 export const AUDIENCES = [
   "High-school students & families",
   "College students & fans",
@@ -202,6 +201,30 @@ export function packageOption(id: string | undefined): PackageOption {
   return PACKAGE_OPTIONS.find((p) => p.id === id) ?? UNSURE;
 }
 
+/* ---------------------------------------------------------------- market */
+
+/** POL-FE-117 (owner, 2026-11-20: "the /brief page still in free text") — the
+    market is picked: a country (United States · East Africa), its state or
+    region, and optionally a city, kept as three answers. `market`, the text BTG
+    reads and the inquiry sends, is written from them ("Takoma Park, MD",
+    "Arusha, Tanzania"), so the body sent to POST /public/inquiries keeps its shape. */
+export function marketPlace(d: Pick<BriefDraft, "answers">): Place {
+  return { countryCode: d.answers.marketCountry || "US", regionCode: d.answers.marketRegion ?? "", city: d.answers.marketCity ?? "" };
+}
+
+/** The answers with a new market picked: the three parts and the words for them. */
+export function withMarket(answers: Record<string, string>, p: Place): Record<string, string> {
+  const picked = placeRegion(p.countryCode, p.regionCode) !== null;
+  return {
+    ...answers,
+    marketCountry: p.countryCode,
+    marketRegion: p.regionCode,
+    marketCity: p.city,
+    /* A US state with no city reads "Maryland", not "MD". */
+    market: !picked ? "" : p.countryCode === "US" && !p.city.trim() ? placeRegion("US", p.regionCode)!.name : placeWords({ countryCode: p.countryCode, stateCode: p.regionCode, city: p.city }),
+  };
+}
+
 /* ------------------------------------------------------------- validation */
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -225,6 +248,10 @@ export function validateBriefStep(
     else if (draft.businessType === OTHER_BUSINESS_TYPE && other.length > 200) errs.businessTypeOther = "Keep it under 200 characters";
   }
   if (def.id === "budget" && !draft.budget) errs.budget = "Pick a range";
+  if (def.id === "market") {
+    const p = marketPlace(draft);
+    if (!placeRegion(p.countryCode, p.regionCode)) errs.market = `Pick where your customers are: a country and a ${regionLabel(p.countryCode).toLowerCase()}`;
+  }
   if (def.id === "contact") {
     const email = (draft.answers.email ?? "").trim();
     if (email && !EMAIL.test(email)) errs.email = "Enter a valid email, like you@company.com";

@@ -1,3 +1,4 @@
+import type { ApiEditionCover, ApiEditionPressPdf } from "@/lib/edition-files-live";
 import type { AdSlotKind, EditionPage, EditionSlot, SplitPayeeKind } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
@@ -65,6 +66,9 @@ export type ApiEditionDetail = {
   nextStep: EditionNextStep;
   stageHistory: EditionStageChange[];
   splitLocked: SplitLock | null;
+  /** P9-BE-27 — the cover and the press PDF on file; null when there is none, absent from an older API. */
+  cover?: ApiEditionCover | null;
+  pressPdf?: ApiEditionPressPdf | null;
 };
 
 export type SaleHoldKey =

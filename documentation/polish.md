@@ -37,6 +37,7 @@ also has a back-end row waits for it.
 | H · Found in walkthrough practice | 44–51, 101–104, 107 | Testers getting the feel of the app hit dead ends and silent waits |
 | I · Whole-app review | 52–78 | The 2026-11-15 review: 7 blockers, then every major and minor finding, in eight waves |
 | K · Upload audit | 110–113 | The 2026-11-19 audit: uploads that can break with nothing noticing, and no test that a real file gets through |
+| L · Campaign builder | 116 | The owner's athlete campaign order template (2026-11-19): creating a campaign must build every athlete's order |
 
 **Closed 2026-11-15.** Every item, 1 to 51, is Done on the Polish sheet (71
 rows). The last two, #45 and #51, were walked live and closed on
@@ -2988,6 +2989,13 @@ the blockers and today's content review findings.
   - **Who:** only an ADVISOR's own login, for the school it is linked to. A student, a guardian, a team manager and BTG staff are refused (403), and another school's advisor only ever sees their own.
   - **Tests:** `backend/tests/pol-be-103-advisor-profile.test.ts` (6). The POL-BE-101 tests now expect the advisor's name. The tenant sweep covers the new route.
   - **Left to `POL-FE-103`:** the Profile page in `/advisor`'s menu.
+- **Delivered, frontend (`POL-FE-103`, 2026-11-20, HeckerCreatives):**
+  - **Where:** `/advisor/profile`, "Profile" in the advisor's menu.
+  - **The page:** two equal cards, Your details (name, title, phone, edited in a pop-up) and Sign-in (Clerk's email; "Manage sign-in" opens Clerk's own screen). Below them, Your school: name and type marked "kept by BTG" with a link to Help, then the email domain, roster count and last roster update. The advisor home's own email-domain and roster controls sit under it, with the same actions.
+  - **Students see the name:** `/next/profile` shows the advisor's name before the email once it is set.
+  - **Refused callers:** BTG staff opening the page are told it is not in their role; an advisor login with no school is told so, never shown a sample.
+  - **Files:** `frontend/src/lib/advisor-profile-live.ts`, `frontend/src/app/(app)/advisor/profile/` (page, loader, actions), `frontend/src/components/advisor-profile.tsx`, `frontend/tests/advisor-profile-live.test.ts` (17).
+  - **Walked** on the local servers as the QA advisor, the QA student and BTG: name, title and phone saved and shown; the student's profile then read "Dana Whitfield · qa.fe.advisor@example.com"; the audit log holds the change; BTG got "Not in your role"; desk and 390px with no sideways scroll. The QA advisor was put back as it was.
 ### 104. A school team can't see or keep its own details current (property portal) — partial today [§8, 2S1-BE-03]
 `POL-BE-104` · `POL-FE-104` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend Done 2026-11-18 (`POL-FE-104` open)
 - **What exists:**
@@ -3035,6 +3043,14 @@ the blockers and today's content review findings.
   - **Who:** only the PROPERTY_MGR of that property. An athlete, a sponsor, an advisor, BTG staff and another team's manager are refused the page (403).
   - **Tests:** `backend/tests/pol-be-104-property-profile.test.ts` (7, each hold reason included), the Zoho rename in `zoho-sync.test.ts`, and the tenant sweep.
   - **Left to `POL-FE-104`:** the page in the property portal.
+- **Delivered, frontend (`POL-FE-104`, 2026-11-20, HeckerCreatives):**
+  - **Where:** `/property/profile`, "Profile" in the property menu before Branding.
+  - **The page:** the organisation on top (name, type kept by BTG, city, state and the type's own details) with one button, "Change name, place or details". The form reuses the sign-up's fields and checks and sends only what differs. Under it, one notice when there is something to say: "Waiting for BTG" with the reasons and each before → after, BTG's "no" with its reason, or for 14 days a change that took effect. The button is hidden while a change waits. Then four equal cards: Main contact (name and phone; email read-only), Description, Your details (name, job title, phone), Sign-in. The first three save at once.
+  - **BTG's desk:** a "Held organisation changes" section on `/admin/new-signups`, drawn only when one waits: what was asked, why it was held, Approve, and Reject with a reason the manager reads. `/admin/profile-changes` was already retired into New sign-ups, so the property changes join it there.
+  - **Follows the backend, not the older wording:** the acceptance says identity fields "go to BTG review"; since the 2026-11-18 automation most take effect at once and only a failed check holds one. "School, sport, level" are whatever details the organisation's type has.
+  - **Files:** `frontend/src/lib/property-profile-live.ts`, `frontend/src/app/(app)/property/profile/` (page, loader, actions), `frontend/src/components/{property-profile,property-change-decision,property-changes-section}.tsx`, `frontend/src/app/(app)/admin/new-signups/property-change-actions.ts`, `frontend/tests/property-profile-live.test.ts` (32).
+  - **Walked** as the QA property manager and BTG: the manager's own details saved at once (audited); a move to Virginia took effect at once; a rename to "Westfield Hawks" waited for BTG with "Another organisation already holds the name", the change button hidden; BTG rejected it with a reason, which the manager's page then showed word for word. Desk and 390px clean. The QA school, its manager and the two change rows were put back as they were.
+  - **Not built:** a link from a held change to the organisation's record (the desk API gives the property id, not the onboarding id `/admin/onboarding/[id]` needs), and BTG's screen for the sponsor's equivalent (`GET /sponsor-account-changes`, from `POL-BE-102`).
 ### 105. The admin home is a hero ring over twenty-two equal cards, so staff can't tell what needs them or how things are going [§10, §23, P7-FE-06]
 `POL-FE-105` · *Confusing* · confirmed (programme owner, 2026-11-17: "big visual redesign for /admin, for the dashboard it must be the dashboard itself like in the image provided, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme of the visual redesign"; three references: a dark analytics dashboard with ring KPI cards, bar and line charts and a data table, an admin template with a revenue card, an area chart, earnings bars and a segmented "completed" gauge, and a wallet dashboard with price cards, a line chart and donut cards)
 - **Problem:** `/admin` opened on four header tiles (a queue ring, campaigns, systems, a legend), then up to 22 queue cards of equal weight, then three lists. There was no chart, no sense of how things were going, and the cards neither said what period they covered nor which needed attention first.
@@ -3149,6 +3165,13 @@ the blockers and today's content review findings.
     - A 400 says why (states outside the US, or an unknown country).
   - **Tests:** `backend/tests/pol-be-107-brief-country.test.ts`, the pure rules plus a real database through the API: no package and no country is US; "ca" is stored as CA; states abroad, ZZ and USA are refused with nothing written; five US athletes approve a US brief, while three in Canada hold a Canadian one for athletes, the other tenant's six not counting; the shortlist; the edit rules; the analyst and another tenant refused; targeting and staffing; the match engine. Removing the country filter fails five of them. `pol-fe-51-sponsor-staffing.test.ts` gains `countryCodes`.
   - **Checked:** backend suite 3,886 / 3,887 against a local Postgres. The one failure was this test's server binding, fixed and re-run green. Backend and frontend build, and lint, are clean.
+- **Delivered, frontend (`POL-FE-107`, 2026-11-20, HeckerCreatives, with `POL-FE-116`):**
+  - **"+ Create a campaign"** on the Dashboard, Campaigns and Requests (one component, `create-campaign-link.tsx`) opens `/sponsor/campaigns/new`, never packages. The empty states of Campaigns, Requests and Insights carry it too, with "or start from a ready-made package" as a second link. Packages stays in the Marketplace menu, and the help article names the new button.
+  - **The page** is the campaign builder of item 116: a full-screen, step-by-step page in the same style as the `/brief` wizard (`POL-FE-114`), outside the portal's sidebar. Its first four steps are this item's: campaign name and goal; budget and dates; who to reach (country from `GET /catalogue/targeting`, United States first; states only for the US, from the states athletes are in; sports, audience size, smallest audience, channels); brand safety (own category, categories to avoid). It sends `POST /briefs` with no package and the country.
+  - **Who:** a Sponsor Admin builds. A Sponsor Viewer or a BTG preview is told who can, and sees no form; the action checks the role again. The draft is kept on the device between visits.
+  - **Campaign name:** the brief has no name field, so the name goes on the goal's second line ("Campaign name: …").
+  - **Left to the backend, not repeated here:** matching only athletes in the chosen country, the 400 for states outside the US, and refusing other sponsors (`POL-BE-107`).
+  - **Walked** as a Sponsor Admin at 1280 and 390 wide: the three buttons, all nine steps, Maryland picked and saved (`stateCodes {MD}`, country US, no package), the sent screen, and the request under Requests as "Being matched by BTG" (held for BTG with "No package — BTG prices custom requests", as a package request would be). A Sponsor Viewer got "Only a sponsor admin can create a campaign". The walk found the review reading "United States: MD"; it now names the state.
 
 ### 108. One organization's page and one sign-up's page show everything at once, so a reviewer can't find what matters or what to do [§10, §23, 2S1-FE-02, 2S1-FE-05, 2S1-FE-07]
 `POL-FE-108` · *Confusing* · confirmed (programme owner, 2026-11-17: "redesign the visual of /admin/onboarding/seed_onb_hawks and /admin/new-signups/guardians/seed_grd_1 the pages are too confusing for a human, we need to redesign this in order for a human to understand, having many information at once can haywire a human's brain and pushing them away to our platform")
@@ -3225,20 +3248,20 @@ the blockers and today's content review findings.
   - **Checked:** 2,402 / 2,402 frontend tests; tsc and eslint clean. Walked live as the QA BTG admin at 1440, 768 and 390: both tabs with the response held (loader, then the list), the kind menu, search, Clear all, List ↔ Cards, How it works opened and closed by Escape with focus back on the button, `?tab=review`, `?demo=loading` and `?demo=empty`, a click on a row's name opening that sign-up. No sideways scroll at any width, also with the mouse on a row. `/admin/applications` walked again on the shared kit (tabs, Cards, How it works). The only console message was a React list-key warning on the athlete sign-up's own page, which this change does not touch. `npm run build` not run (the owner's `next dev` is live).
 
 ### 110. A team, school or sponsor logo is saved even when its file never arrived [§8, upload audit §3]
-`POL-BE-110` · *Silent* · confirmed (upload audit, 2026-11-19)
+`POL-BE-110` · *Silent* · confirmed · **Done 2026-11-19** (#490) (upload audit, 2026-11-19)
 - **Problem:** the property's branding form (`POST /branding/logo`, then save) and the sponsor's Account page (`POST /sponsor/account/logo`, then `PATCH /sponsor/account/company`) save the logo's key after checking only that it sits in their own folder. If the upload failed, the record still points at nothing, and every page and report shows a broken image. The athlete's profile photo already checks that its file exists.
 - **Done when:**
   - A logo is saved only once its file has arrived, is the declared type (PNG or JPEG) and fits 1 MB.
   - Otherwise the save is refused with "upload it again", and the old logo stays.
   - The real-upload test covers both logos.
-- **Delivered (2026-11-19, rcfworks, Code review):**
+- **Delivered (2026-11-19, rcfworks; Done, deployed to staging and production the same day):**
   - **The check:** `checkPublicUpload` in `backend/src/lib/storage.ts`. Before a record points at a public file, the file must exist, be one of the types asked for, and fit the size. A wrong file is deleted at once, because the public bucket serves it to anyone.
   - **Where it runs:** `updateBranding` (team or school logo), `updateCompany` (sponsor logo) and `setAthletePhoto` (profile photo). The photo used to check only that its file existed.
   - **What a person sees:** a missing file is refused (409, "hasn't arrived yet"). A wrong type or size is refused (422, "so it was removed"). The old logo or photo stays.
   - Saving the same key again isn't re-checked.
 
 ### 111. Five uploads are never tested with a real file [§30, upload audit §4]
-`POL-BE-111` · *Silent* · confirmed (upload audit, 2026-11-19)
+`POL-BE-111` · *Silent* · confirmed · **Done 2026-11-19** (#490) (upload audit, 2026-11-19)
 - **Problem:** `backend/tests/private-upload-pins.test.ts` puts a real file into a test storage for 11 flows. Five are tested only against fake storage:
   - dispute documents;
   - student drafts;
@@ -3250,7 +3273,7 @@ the blockers and today's content review findings.
 - **Done when:**
   - All five run through the real-upload test: a wrong type or size refused, the right file accepted.
   - The completeness check fails when any upload in `backend/src` is missing from the test, public uploads included.
-- **Delivered (2026-11-19, rcfworks, Code review):**
+- **Delivered (2026-11-19, rcfworks; Done, deployed to staging and production the same day):**
   - **Private:** `backend/tests/private-upload-pins.test.ts` gains dispute documents. Student drafts were added by P9-BE-25, along with edition content.
   - **Public:** new `backend/tests/public-upload-pins.test.ts` covers the team or school logo, the sponsor logo and the profile photo, each run as a browser runs it against a store that checks signatures:
     - the URL is signed for one type and size, and the bucket refuses anything else;
@@ -3262,13 +3285,13 @@ the blockers and today's content review findings.
   - **Checked:** full backend suite 285 files, 4,026 tests; lint clean.
 
 ### 112. CI's browser tests never really upload a file [§30, upload audit §4]
-`POL-BE-112` · *Silent* · confirmed (upload audit, 2026-11-19)
+`POL-BE-112` · *Silent* · confirmed · **Done 2026-11-19** (#492) (upload audit, 2026-11-19)
 - **Problem:** four flows have a browser test that uploads a file: the athlete's content, a sign-up ID, onboarding documents and a support attachment. CI's browser job has no storage, so the test itself answers the step where the browser sends the file (`e2e/support/object-store.ts`). A broken browser upload passes CI.
 - **Done when:**
   - CI's browser job runs a real test storage, with the same upload rule as staging.
   - The four tests upload for real in CI, and fail if the storage refuses.
   - The stand-in stays only for a laptop with no storage running.
-- **Delivered (2026-11-19, rcfworks, Code review):**
+- **Delivered (2026-11-19, rcfworks; Done, deployed to staging and production the same day):**
   - **First attempt:** real MinIO in CI. It failed because MinIO's server image is no longer published (`pull access denied for minio/minio`).
   - **What CI uses instead:** the e2e object store (`e2e/support/object-store-standin.mjs`) in a new **strict** mode (`E2E_STORE_STRICT=1`), held to what R2 enforces:
     - **The upload rule:** only `E2E_STORE_ALLOW_ORIGIN` (the test site, `http://127.0.0.1:3100`, as staging allows only its web origin) gets a preflight and an allow-origin. Another site's browser upload fails, as it did on 2026-11-16.
@@ -3283,14 +3306,14 @@ the blockers and today's content review findings.
   - The e2e suite's run on the pull request is the end-to-end test.
 
 ### 113. Nothing checks that the live storage accepts uploads [§26, upload audit §4]
-`POL-BE-113` · *Silent* · confirmed (upload audit, 2026-11-19; it already broke once, 2026-11-16)
+`POL-BE-113` · *Silent* · confirmed · **Done 2026-11-19** (#493) (upload audit, 2026-11-19; it already broke once, 2026-11-16)
 - **Problem:** on 2026-11-16, the public storage on both staging and production had no rule letting the website upload to it. Every profile photo and logo upload failed, and nobody knew until someone tried. The health check only asks whether the public storage exists. It doesn't check the private storage, and it never tries an upload from the website's address.
 - **Done when:**
   - Every day, and after every deploy, staging and production each check both storage areas: ask permission to upload as the website would, put a small test file through a signed link, read it back, and delete it.
   - Any step failing turns the deploy check red and tells BTG what failed.
   - The health check covers the private storage too.
   - The check leaves nothing behind in storage.
-- **Delivered (2026-11-19, rcfworks, Code review):**
+- **Delivered (2026-11-19, rcfworks; Done, deployed to staging and production the same day):**
   - **The check** (`probeBucket` in `backend/src/lib/storage.ts`, `runStorageCheck` in `backend/src/domain/storage-check.ts`) runs on both storage areas:
     - a preflight as the website (the origin of `APP_URL`, which is `https://web-staging-904a.up.railway.app` on staging and `https://sponsorx.net` on production, each matching its upload rule);
     - a signed upload as the website;
@@ -3382,3 +3405,210 @@ the blockers and today's content review findings.
   - **Files:** new `app/join/apply/{layout.tsx,page.tsx,loading.tsx}`, `components/join-start.tsx`, `components/focus-wizard.tsx`, `tests/join-apply.test.ts`. Rewritten `components/join-wizard.tsx`. Changed `app/(public)/join/page.tsx`, `components/join-stage.tsx` (the closing button), `components/join-submitted.tsx` (the heading), `lib/join-flow.ts` (the messages, the email check), `components/brief-wizard.tsx` and `app/brief/brief.css` (the shared frame and its colour), `lib/help/athlete.ts`, `scripts/help-shots/capture.mjs`.
   - **Checked:** 2,524 / 2,524 frontend tests (11 new in `join-apply.test.ts`); tsc and eslint clean. Walked on the running dev server at 1440×900, 1180×720 and 390×844, and at 1440 with reduced motion: the landing and its button, every section with an empty Continue and then filled, a bad email, a state that is not two letters, no social handle, Enter inside the "add a deal" box (stays on the step), both ticks arming Submit, back and forward from the list of steps (forward refused while the step had a gap), Save and finish later, Resume from the landing, the under-18 sample (10 steps) and the submitted sample with Review your answers. No console errors and no sideways scroll at any size. `/brief` walked again at the same four sizes.
   - **Not checked:** a real submission. The walk stopped with Submit armed, so no application was filed; the submit path is the one that was there, plus a guard against a double click. `npm run build` not run (the owner's `next dev` is live).
+
+### 116. Creating a campaign doesn't build the athlete's order, so most of the order template has nowhere to go [§13, §21, Athlete Campaign Order template]
+`POL-BE-116` · `POL-FE-116` · *Dead end* · confirmed · **`POL-BE-116` Done 2026-11-19** (#497) (programme owner, 2026-11-19)
+- **The owner's words:**
+  - "Make sure it follows this": `documentation/AthleteCampaignReference/BTG_SponsorX_Athlete_Campaign_Order.docx`.
+  - "That form is only for a video campaign. Use that form as a base when the campaign is on other media."
+  - "Whenever a create campaign is called, we have a page to build it right, include the details of that form as well."
+  - Payment timing is set per campaign ("yes"). There is no countersignature by a person: "we focus on automation rules".
+- **Problem:** the review of 2026-11-19 found that the legal terms (`CAMPAIGN_ORDER.v2`) match the template, but most of an order's details are never stored:
+  - an order number (`SX-…-2026-…`);
+  - the prompt, on orders sent from an invitation;
+  - the deliverable's format and length;
+  - the publish window;
+  - usage rights split into channels, period, territory and restrictions (today one line of text);
+  - paid media (platforms, duration, territory, extra pay);
+  - exclusivity split into category, period and area;
+  - disclosure, on orders sent from an invitation;
+  - sponsor approval as a yes or no;
+  - payment timing, set per campaign;
+  - product or non-cash consideration.
+
+  Automatic staffing fills offers with defaults: one standard usage-rights sentence, "#ad", and the package's exclusivity.
+- **The shape:** the template is the base for every order.
+  - **The same on every order:** the order fields, the terms and the acceptance.
+  - **What changes:** the deliverable section, by the job's medium:
+    - SX-03 Athlete Reel (the template): videos, length, vertical format, platform;
+    - SX-01 Story Drop: frames, platform, link or sticker, how long it stays up;
+    - SX-02 Sponsored Post: photo or carousel and how many images, caption, platform, how long it stays up;
+    - SX-04 Product Experience: the product, the content format, whether the product is kept;
+    - SX-05 Local Appearance: event, date and time, place, hours on site, activities, who films;
+    - SX-06 Content Day: shoot date and place, hours, how many finished pieces, who films, whether raw footage is included;
+    - SX-07 Monthly Ambassador: months, and the monthly mix of the jobs above.
+- **Backend (`POL-BE-116`, rcfworks):**
+  - **Storage:** the campaign keeps its order details, filled in when it's created: the prompt, each job with its media details, the publish window, usage, paid media, exclusivity, disclosures, sponsor approval, payment timing and non-cash consideration. A campaign made from a brief carries the brief's.
+  - **Carried through:** each offer and Campaign Order copies them, fixed when sent, whether made by automatic staffing or sent from an invitation. Each order gets a number, `SX-<campaign code>-<year>-<sequence>`.
+  - **The builder's API:** the job catalogue with each job's media details and defaults, checks on every field, and the campaign's order details in one save.
+  - **Automation rules:** an order is issued automatically when every check passes. It is held for BTG, with the reason, when:
+    - paid media or exclusivity applies to a minor;
+    - the category is sensitive;
+    - paid media has no extra pay;
+    - exclusivity has no category;
+    - a usage period runs past what the athlete's tier allows.
+  - **Payment timing:** sets when the athlete's earning is due.
+  - **Wording:** new `CAMPAIGN_ORDER.v3` text points to the order's own payment timing, paid media and exclusivity area. New wording is a new file; v2 stays for orders already accepted.
+  - **Tests:** every new route and rule, the isolation sweep, and both ways an order is made.
+- **Frontend (`POL-FE-116`, HeckerCreatives, waits for `POL-BE-116`):**
+  - **The builder:** "Create a campaign" opens a page that builds the whole campaign, step by step. The deliverable section changes with each chosen job's medium, and a summary of every detail appears before saving.
+  - **The athlete's order:** shows every detail, laid out like the template, before the athlete or their guardian accepts.
+  - **BTG's desk:** shows a held order's reasons.
+- **Done when:**
+  - Every field in the template, and each medium's own details, is set when a campaign is created and reaches each athlete's order unchanged.
+  - Each order has a number.
+  - An order is issued automatically, or held with a reason in words.
+  - The earning follows the campaign's payment timing.
+  - The athlete sees the whole order before accepting.
+- **Delivered, backend (`POL-BE-116`, 2026-11-19, rcfworks; Done, deployed to staging and production the same day):**
+  - **The details** (`backend/src/domain/order-details-rules.ts`) follow the template, checked in full and refused in words:
+    - prompt, publish window, usage (channels, period, territory, restrictions), paid media (kinds, platforms, duration, territory, extra pay), exclusivity (category, days, area), disclosures, sponsor approval, payment timing (days after verified) and non-cash consideration;
+    - each job's medium, keyed by the NIL job, SX-01 to SX-07.
+  - **On the brief:** `POST /briefs` and `PATCH /briefs/{id}` take `orderDetails` and `orderCode`. The publish window must sit inside the campaign's dates.
+  - **On the campaign:** created from the brief (`prepareCampaignDetailsIn`, for all three ways a campaign is made), or BTG's standard terms over the campaign's dates.
+    - The code is three letters from the name, the next free one if taken, unique in the tenant for the year.
+    - `GET /campaigns/{id}/order-details` gives the details, the code, whether they are the standard terms, and whether they are locked.
+    - `PUT /campaigns/{id}/order-details` is BTG's, until the first offer or order goes out (409 after).
+  - **The builder:**
+    - `GET /campaign-builder/catalogue` lists each job's medium fields, limits and defaults; the channels, platforms and paid-media kinds; and the defaults.
+    - `GET /campaign-builder/order-code?name=` suggests a code.
+  - **Every order:**
+    - The offer draft fills the prompt, deliverables, usage, exclusivity and disclosures from the details. A reel owes one deliverable per video, and each title says what it asks for.
+    - An offer carries the details for its job, in its hash only when present, so older offers hash as before.
+    - The accepted order and an order sent from an invitation both get `orderNumber` (`SX-<code>-<year>-<n>`, counted in the order's own transaction) and `orderDetails`.
+    - `GET /orders/{id}` shows both. Paid media's extra pay rides only where the athlete's compensation does.
+  - **Automation rules:**
+    - Paid media with no extra pay stops the campaign's automatic staffing, with the reason.
+    - A minor, with paid media or exclusivity, is skipped with the reason, and BTG can still offer by hand.
+    - A sensitive category is not held again: its brief already waited for a person.
+  - **Approval:**
+    - "Sponsor approval: yes" stops BTG approving a draft alone; it goes to the sponsor.
+    - "No" means BTG's review is the only one and is never skipped.
+    - An invited order's drafts are now checked for its disclosures.
+  - **Payment timing:** sets `Earning.payBy` when the earning becomes eligible. `readEarning` shows it.
+  - **Wording:** `backend/agreements/CAMPAIGN_ORDER.v3.txt`, effective 2026-11-19. It covers the details above, the athlete keeping ownership, paid media's kinds and extra pay, exclusivity's area, and the order's own payment timing (30 days where none is stated). v2 stays for orders already accepted.
+  - **Storage:** migration `20261119230000_campaign_order_details`: the new columns, `OrderNumberCounter`, and the checks.
+  - **Tests:**
+    - `backend/tests/order-details.unit.test.ts` (9);
+    - `backend/tests/pol-be-116-campaign-order-details.test.ts` (9, the real API and database);
+    - the isolation sweep, and five older tests updated for the new calls and fields.
+  - **Checked:** full backend suite 288 files, 4,052 tests; lint and build clean.
+  - **Left to `POL-FE-116`:** the builder page, the athlete's order page laid out like the template, and BTG's held reasons. The routes are above.
+- **Delivered, frontend (`POL-FE-116`, 2026-11-20, HeckerCreatives):**
+  - **The builder** (`/sponsor/campaigns/new`, steps 5 to 9 after item 107's four): the prompt and the jobs from `GET /campaign-builder/catalogue`; a deliverables section per chosen job that changes with its medium, plus the publish window; usage and paid media (kinds, platforms, length, area, extra pay); exclusivity, sponsor approval, payment timing, anything else the athlete receives, and the order code from `GET /campaign-builder/order-code`; then the whole order as a summary with Edit on each part, and "Send to BTG". `orderDetails` and `orderCode` go on the brief.
+  - **The athlete's offer and order pages** show the whole order laid out like the template (`components/order-sheet.tsx`, rules in `lib/order-details.ts`): who, the job, the prompt, then the five numbered sections. The order number sits beside an order's title. Offers and orders made before `POL-BE-116` keep the old short terms.
+  - **BTG's campaign page** has "The athlete's order": the numbering, whether it is BTG's standard terms and whether it is fixed, the whole order, and a warning when paid media has no extra pay. An order-rules hold reads as a titled list of reasons, for the campaign and for each athlete it skipped.
+  - **Files:** `frontend/src/app/(focus)/sponsor/campaigns/new/` (page, loader, actions, `builder.css`), `frontend/src/components/{sponsor-campaign-builder,order-sheet,create-campaign-link}.tsx`, `frontend/src/lib/{campaign-builder,order-details}.ts`, `frontend/tests/campaign-builder.test.ts` (50); the sponsor Dashboard, Campaigns, Requests and Insights pages, the athlete's offer and order pages, BTG's campaign page, `brief-fx.tsx`, `focus-wizard.tsx`, `lib/{order-live,offer-live}.ts`, `lib/help/sponsor.ts`.
+  - **Walked** end to end on the local servers: a Sponsor Admin built and sent a campaign (two jobs, Story Drop and Sponsored Post); the brief held every template field (each job's medium details, usage, paid media, `#ad`, publish window, payment timing, order code `WPP`). BTG approved it and made its campaign through the API, the campaign page showed "The athlete's order" numbered `SX-WPP-2026-…`, and an offer was sent to the QA athlete, whose offer page showed the whole order before Accept, at 1280 and 390 wide with no sideways scroll. The walk's briefs, campaign and offer were removed afterwards.
+  - **Not built:** BTG can't edit a campaign's order (`PUT /campaigns/{id}/order-details` has no screen); the panel is read-only and the hold text sends BTG to offering by hand in the Matching Studio. A held order-rules campaign was not walked live; its reasons are covered by tests that read the backend's own hold functions.
+
+### 117. Where someone is from is typed, US only, so a Tanzanian athlete can't say where they live and a typo becomes a place [§11, §13, §26, 2S1-BE-12, POL-BE-107]
+`POL-BE-117` · `POL-FE-117` · *Confusing* · confirmed · **Done 2026-11-20** (programme owner, 2026-11-20)
+- **The owner's words:**
+  - "For the countries: East Africa, USA, Tanzania, Uganda — we need this, then add their city and region. We need the updated 2026 list."
+  - "Its better if its dropdown that can be selected instead of free text."
+  - "Also add a search on the dropdowns."
+  - Asked how far: East Africa as a **group of countries**; **every incorporated place** in the US; on **the athlete profile, the sample editor, the team profile and the sponsor's campaign targeting**.
+- **Problem:** the athlete wizard and full editor asked for a city as free text and a state as "two letters, like TX"; the team profile's city was free text; the sponsor's request took states as comma-separated codes. Only the US was possible, so an East African athlete had nowhere to say where they live, and a typo ("Austn", "TXX") was stored as a place.
+- **The catalogue** (`scripts/places/build-places.mjs` writes it; never edited by hand):
+  - **United States:** 50 states + DC; every incorporated place in the US Census Bureau's 2025 gazetteer (19,472). Hawaii has no incorporated places (Honolulu is a city-county), so it lists its 161 Census-designated communities.
+  - **East Africa:** Tanzania (31 regions), Uganda (4 regions), Kenya (47 counties), Rwanda (5 provinces), Burundi (the 5 provinces of the 2025 reform), South Sudan (10 states + 3 administrative areas), Ethiopia (14, after the 2023 split), Somalia (18 regions), DR Congo (26 provinces) — 1,365 cities and towns, researched 2026-11 with the sources and doubts for each country in `scripts/places/east-africa.json` (`sources`, `notes`).
+  - Codes are ISO 3166-2 where ISO has the unit; where it doesn't yet (Burundi's new provinces, Ethiopia's Central and South Ethiopia, South Sudan's three areas) a two-letter code is made up and marked `"iso": false`.
+- **Backend (`POL-BE-117`):**
+  - `backend/src/domain/places.ts` reads `backend/places/places.json` and checks **only what a write changes** — a city typed before the list existed never blocks an unrelated edit.
+  - **Athlete profile changes** carry `countryCode`. A new country is a move like a new state: the age of majority is worked out again, and a move that would make a minor an adult is held for BTG (POL-BE-02) **with its country and city**, so the record never files a city of one region under another. `GET /athletes/me` returns `countryCode`.
+  - **Team profile:** a changed city must be one of its state's places; a state move names its new city. Still US only — see "Not built".
+  - **Briefs:** an East African brief may narrow to that country's regions, each checked against the list; elsewhere outside the US the brief still covers the whole country (POL-BE-107). Region codes are 1–3 letters or digits (`RegionCode`).
+  - Refusals are 400 `unknown_place`, in words: "Choose your city from the list for Texas, United States."
+- **Frontend (`POL-FE-117`):**
+  - `SearchSelect` (`components/filter-kit.tsx`): a dropdown with a search box, group headings, ↑ ↓ Home End Enter Esc, and "Showing 200 of 1,221 — type to narrow" on long lists. Nothing can be typed that isn't a choice.
+  - `PlacePicker` (`components/place-picker.tsx`): Country (United States · East Africa) → the country's own word for its regions (State, Region, County, Province) → the region's cities, fetched when the region is picked (`/places/CC-RC.json`; the bundle carries only countries and regions, 20 KB). A city on file that isn't on the list is kept and marked "not on the list" until the person picks another.
+  - Used on: the athlete profile wizard, the full profile editor, the sample profile editor, the team profile (State → City), the campaign builder (a searchable Country listing every East African country, "no athletes yet" where none is; each country's own regions as chips) and a sponsor's request edit (regions picked as chips, not typed codes).
+  - **The public brief (`/brief`), added the same day** (owner: "the /brief page still in free text"): the Where step's "City or region" box is now Country → State or region → City (optional). The three picks are kept as answers and `market` is written from them ("Takoma Park, MD", "Maryland", "Kampala, Uganda"), so the body sent to `POST /public/inquiries` keeps its shape. A draft saved with a typed market reopens on the Where step to pick it. Walked at 1280 and 390 (Uganda → Central → Kampala), not sent.
+- **Tests:** `backend/tests/pol-be-117-places.test.ts` (13: the catalogue, `checkPlace`, East African brief regions, and through the API an unrelated edit past a legacy city, refusals in words, an adult's move to Dar es Salaam, a minor's held move applied whole) and `frontend/tests/pol-fe-117-places.test.ts` (front and back are one list, every city file there, the dropdowns, the wizard and request rules). Updated where behaviour deliberately changed: `phase2-profile-edits`, `pol-be-104-property-profile`, `profile-wizard`, `brief-actions`, `campaign-builder`.
+- **Walked** on the local servers as the QA athlete, desktop 1280 and phone 390: grouped countries, "tan" → Tanzania, Region → Dar es Salaam, "kig" → Kigamboni, the live preview reading "Dar es Salaam, Tanzania", Texas's 1,221 places with the narrow note, Esc closes only the list; no horizontal scroll, no page errors. Nothing saved.
+- **Not built / for BTG:**
+  - **A team outside the US.** A team's state decides its US legal documents (`requiredDocuments`), so a Tanzanian team needs BTG to say what it files first. The team profile stays US: State → City.
+  - **Ages of majority for East Africa.** None of the nine countries is in the age table, so an athlete there counts as 18 and is flagged for BTG (`majorityKnown` false), as designed for any place not in the table. BTG adds the countries' ages on the sign-up rules page.
+  - **Silver Spring, Bethesda, Columbia (MD), Arlington (VA)** and other large unincorporated communities aren't incorporated places, so they aren't on the US list. Adding the Census-designated places (~12,500 more) is a one-line change to the generator if wanted.
+  - Other typed places remain: the athlete application at /join (US two-letter state), a reward's venue, the NEXT apply flow. Out of this item's scope.
+- **Follow-up, same day — two screens still on the old lists** (owner: "why the hell is this still using the old dropdown"; "we need to make the age of majority page align with the countries, regions, and city that we listed earlier"):
+  - **The sponsor shop’s filter** (`components/sponsor-shop/shop-window.tsx`) was the US-only State list. It is now `PlacePicker` in a new `filter` mode ("Any country / Any state / Any city" first in each list), one chip in words ("In Takoma Park, MD", "In Tanzania"). `GET /marketplace/search` takes `countryCode` and `city`, and `stateCode` is 1–3 characters (some East African region codes are one letter). A team’s listing is where the team is (US); an independent athlete’s is where the athlete lives. An old `?stateCode=MD` link is a US state.
+  - **The age-of-majority board** (`/admin/new-signups/rules`: `lib/age-table.ts`, `rules-board.tsx`, `place-dialog.tsx`) listed only places with a row, from a list of every country in the world. Its rail is now the place list (United States · East Africa, the pickers’ order); every region has a card — its own row, or a dashed card for the age it follows — with its city count (a city has no age of its own, it follows its region); a country nobody has set says **No age set** and offers "Set …’s age"; "Add a place" offers only places on the list, under each country’s own word for its regions. The API refuses a *new* row off the list (`setAgeRow`, 422 in words); rows from before the list (Canada, Puerto Rico, …) still apply to anyone who signed up there, so they are gathered under one **Not on the place list** entry, where they can be changed or removed. The East African ages themselves are still BTG’s to set.
+
+### 118. A sponsor who sends a brief and signs in is bounced to the landing page, then told to apply [§9.2, §26, 2S1-BE-17, P2-INT-01]
+`POL-BE-118` · `POL-FE-118` · *Dead end* · confirmed · **Done 2026-11-20** (programme owner, 2026-11-20)
+- **The owner's words:** "this is super misleading, after I register in brief, I tried to login the first time then it kick me back to the landing page this is a bug, then for the second time i go to login page its show that now" — the page: "Your account isn't set up yet … this address doesn't have a SponsorX account yet. Athletes, sponsors and teams or venues get one by applying on Get started."
+- **Problem, two parts:**
+  - **The bounce.** The sign-in widget sent sign-*ins* to `/portal` (`forceRedirectUrl`) but nothing set where a sign-*up* goes. Someone new — a sponsor fresh from the brief, most likely through "Continue with Google", which Clerk turns into a sign-up for an unknown address — landed on Clerk's default, `/`: the landing page, as if nothing had happened.
+  - **The page.** A sponsor's login is opened only when the request is approved (2S1-BE-17: email confirmed, proof uploaded, checks pass). Before that, `/portal` said the address has no account and told them to apply — about a request they had just sent. An athlete applicant signing in early read the same.
+- **Backend (`POL-BE-118`):**
+  - `resolveActor` (auth/actor.ts), finding no login for the verified address, asks `pendingApplicationFor` (domain/pending-application.ts) what it applied for.
+  - **A sponsor request:** signing in with the request's own address proves the mailbox exactly as the emailed confirmation link does, so it confirms the email (audited `sponsorRequest.emailConfirmed`, `via: signIn`) and runs the automatic checks. A request that is otherwise complete is approved there and then, and this same sign-in claims the new login — straight into the sponsor portal.
+  - Otherwise the 403 `unprovisioned` carries `pending`: the business, its state, what is still missing in words, whether BTG is reviewing it, and the request's status page (`/sponsor-request/<token>`, a fresh token, as the confirmation link gives).
+  - **An athlete application** (DRAFT, SUBMITTED, UNDER_REVIEW, CHANGES_REQUESTED, REJECTED) is reported with its state.
+- **Frontend (`POL-FE-118`):**
+  - `/login`: `signUpForceRedirectUrl="/portal"` on the widget, and `signInFallbackRedirectUrl` / `signUpFallbackRedirectUrl` on the provider, so no sign-in or sign-up ends on `/`.
+  - `/portal` (words in `lib/pending-words.ts`): "Your sponsor request is almost ready — your request for <business> is in, and signing in has confirmed your email. Your account opens as soon as you: • Upload your proof of business." with that button; "BTG is checking your sponsor request" when it's all in; declined and closed said plainly; an athlete told where the application stands with a link to it. Only an address that applied for nothing reads the old refusal, now ending "Applied with a different address? Sign out and sign in with that one."
+- **Tests:** `backend/tests/pol-be-118-sign-in-before-approval.test.ts` (a brief without proof: sign-in confirms the email and the refusal says what's left; its status link takes the proof and the next sign-in is the sponsor; a complete brief opens and is claimed by the sign-in itself; an athlete applicant; an address with nothing) and `frontend/tests/pol-fe-118-pending-words.test.ts`.
+- **Walked** on the local servers with a throwaway Clerk user: brief sent through the API, first sign-in → `/portal` "Your sponsor request is almost ready" with the upload button, which opens the request page; phone width without overflow. The Google sign-up path can't be scripted; the redirect is set for it. The walk's Clerk user, brief and queued jobs were deleted.
+- **Not built:** a login BTG switched off (`account_disabled`) still shows the generic page on `/portal`; its API message is right, the page doesn't read it yet.
+
+### 119. Nobody is told the transaction fee, who pays it or the processing cost before accepting a campaign or order [§13, §19, §21, partnership agreement "Platform access and service orders"]
+`POL-BE-119` · `POL-BE-120` · `POL-FE-119` · *Trust* · confirmed · **`POL-BE-119`, `POL-BE-120` Done 2026-11-21** (#511, #512; promoted #513; deployed, release a85b4935) (programme owner, 2026-11-21)
+- **The agreement (Rodney, raised by the programme owner 2026-11-21):** "SponsorX onboarding and Partnership access carry no upfront or monthly access fee. Before campaign acceptance, disclose the applicable transaction fee, fee payer and processing costs in writing. If a fee applies, identify it in the signed campaign order. Any change requires written acceptance before it applies to that order." The owner's emphasis: "BEFORE CAMPAIGN ACCEPTANCE, DISCLOSE THE APPLICABLE TRANSACTION FEE, FEE PAYER AND PROCESSING COST IN WRITING."
+- **Problem:**
+  - **Athletes** (Campaign Order, Offer) read only "your compensation is not reduced by BTG's fee": no fee, payer or processing named.
+  - **Sellers** (marketplace order, Deal Chat) are told nothing on the order; the property terms they signed at sign-up fix 15% / 5% / 2.9% + 30¢ / 2% / 10%, while the app charges whatever the Commission page says.
+  - **Sponsors** see a buyer fee when placing a marketplace order, not processing or who pays it. On a managed campaign they never accept a price inside SponsorX at all.
+  - **Rates move after acceptance:** a marketplace order's rates are looked up when BTG approves it, after the seller accepted, so a rate changed in between reaches the seller unseen.
+- **Owner decisions (2026-11-21):**
+  - The athlete's statement on a managed campaign reads: transaction fee none deducted from you; fee payer the sponsor, included in the sponsor's price; processing none to you.
+  - The sponsor gets a step to confirm a managed campaign's price, with its fee statement, before launch: once it is fully staffed (APPROVAL) and the price is known. At creation only the brief's budget exists.
+- **Backend (`POL-BE-119`), built:**
+  - **The statement** (`domain/fee-statement-rules.ts`, pure; `domain/fee-statement.ts`): each fee's name, rate, fixed amount, amount and payer; processing's rate, fixed amount, amount and payer; for a seller, the reserve held and what they receive; for a sponsor, what they pay; and the same in plain sentences (`text`). Fees that come to nothing are left out, and the words say no other applies. Its hash is `sha256:` over the statement with sorted keys.
+  - **Rates frozen at placement:** the commission rates an order carries are resolved when the sponsor places it and kept on `MarketplaceOrder.feeTerms` (write-once, `marketplace_order_immutable.sql`). Every statement about the order and the ledger's booking use them. An order placed before this has its rates frozen the first time a statement is shown (audited `marketplaceOrder.feeTermsFrozen`).
+  - **The six acceptances:**
+    - The athlete's **Campaign Order** (`POST /orders/{id}/accept`) and **Offer** (`POST /offers/{id}/respond`, ACCEPT): no fee deducted, the sponsor pays it in the sponsor's price, no processing. Kept on `CampaignOrder.feeStatement` and the offer's terms snapshot.
+    - The seller **submitting or resuming a listing** (`POST /listings/{id}/submit`, `/transition` to PUBLISHED), or **accepting a live listing's fees** without pausing it (`POST /listings/{id}/accept-fees`, for a listing submitted before statements or whose rates changed): an order of one at the listing's price, at today's rates. Kept on `Listing.feeAcceptance` with the rates.
+    - The seller **accepting an order** (`POST /seller-approvals/{id}/decision`): their lines under the order's frozen rates. Kept on `OrderSellerApproval.feeStatement`.
+    - The sponsor **placing a marketplace order** (`POST /marketplace-orders`): the buyer fee is theirs; the other fees and processing are the seller's, out of the sale. Kept in `feeTerms.sponsor`.
+    - The **Deal Chat agreement**: both sides' statements on the agreed amount, written into the text (DEAL v2 `{{fees}}`), so the existing body hash covers them. Kept on `DealAgreement.feeStatements`. The buyer fee after signing uses the frozen rate, not today's setting.
+    - The sponsor **confirming a managed campaign's price** (`GET /campaigns/{id}/price`, `POST /campaigns/{id}/price/confirm`): the signed orders' sell prices; no fee added (BTG's fee is in the price); no processing; BTG invoices it. Sponsor admins only, in APPROVAL. Kept on `Campaign.priceConfirmation`, audited `campaign.priceConfirm`.
+  - **A change needs written acceptance:** an order whose frozen rates differ from those its seller accepted for the listing (a rule changed since, a rule for this sponsor, a listing submitted before statements) asks that seller to accept it with its own statement first. A campaign whose price changed after the sponsor confirmed it waits for a new confirmation.
+  - **Sellers told when rates change** (owner, 2026-11-21):
+    - **When:** each time a commission rule is created or revised (`notify.feeRatesChanged`), and daily from the worker.
+    - **What:** every live listing is priced at the moment the change takes effect and compared with the rates its seller accepted.
+    - **Who:** each seller with listings that differ gets one `listing.feeRatesChanged` email naming them, and is never emailed twice for the same set.
+    - **Why it matters:** until the seller accepts again (`POST /listings/{id}/accept-fees`), each order on those listings asks them first.
+  - **The switch `FEE_STATEMENT_REQUIRED`** (documentation/SponsorX-Switches.md), off until the screens show the statement. On: every acceptance must echo the hash (409 `fee_statement_required`). An out-of-date one is always refused (409 `fee_statement_changed`, with the current `feeStatement` and `feeStatementHash` in the error). A managed campaign can't launch until its price is confirmed: the automatic launch waits, and BTG's is refused (409 `price_not_confirmed`). The sponsor's admins are emailed when the campaign reaches APPROVAL (`campaign.confirmPrice`). Off: acceptances record the statement with `shown: false`; the confirm step itself always requires the hash.
+- **Existing sellers accept the new seller terms (`POL-BE-120`; owner, 2026-11-21: "yes, ask them"):**
+  - Seller terms were only ever accepted at onboarding, so `PROPERTY_TERMS.v3` would never have reached a team already selling.
+  - `GET /seller-terms` gives a team's manager the version in force, with its text and hash, and whether the team has accepted it.
+  - `POST /seller-terms/accept` records the acceptance on the team's onboarding, with the IP and browser, and audits it.
+  - With the switch on, a team on an older version can't list, resume, accept a listing's fees, accept an order or sign a Deal agreement as the seller (409 `seller_terms_required`).
+  - An athlete selling their own items signs no seller terms today.
+- **Agreements (`POL-BE-120`), built:** `CAMPAIGN_ORDER.v4`, `DEAL.v2`, `MARKETPLACE_ORDER.v3`, `PROPERTY_TERMS.v3` in `backend/agreements/`. Each says access is free (no upfront or monthly access fee), makes the fee statement shown before acceptance part of the order, and requires written acceptance for any change to a fee, its payer or the processing cost. `PROPERTY_TERMS.v3` drops the fixed 15% / 5% / 2.9% + 30¢ / 2% / 10% and the rate change on 30 days' notice; the fees are those disclosed on each order. Orders already accepted keep their version.
+- **Tests:**
+  - `backend/tests/pol-be-119-fee-statement.test.ts`: the words and figures for each side; the seller's sums equal what the ledger books; the hash; the check.
+  - `backend/tests/pol-be-119-fee-disclosure.test.ts`, over the API and database:
+    - checkout's statement; placing with another hash, or none once required, is refused;
+    - a rule revised after placement never reaches the order: the seller is shown, accepts, and is booked at 15%, not 20%;
+    - the frozen terms can't be rewritten;
+    - a listing submitted with its statement isn't asked again.
+  - `backend/tests/auto-staffing-launch.test.ts` (POL-BE-119 block):
+    - the athlete's Offer and a BTG-sent Campaign Order, each accepted by its hash;
+    - the unconfirmed campaign holds on its start date, and BTG's launch is refused;
+    - the sponsor confirms, and nobody else can;
+    - a price changed after confirming waits for a new confirmation, then launches.
+  - `deal-agreement.test.ts`: DEAL v2 and its fee section.
+  - `tenant-isolation.test.ts`: the confirm route, for every other tenant and role.
+- **Frontend (`POL-FE-119`, HeckerCreatives):**
+  - **Where:** a fee box above Accept or Sign on every acceptance screen, from the read the screen already makes: `GET /orders/{id}`, `GET /offers/{id}`, `GET /listings/{id}` (the seller), `GET /seller-approvals/{id}`, `GET /reservations/{id}` → `checkout`, and the Deal Chat agreement's text.
+  - **What to show:** `feeStatement.text`, one line each, or the figures in `fees` / `processing`.
+  - **Accepting:** send back `feeStatementHash` with the accept. On 409 `fee_statement_changed`, show the `feeStatement` in the error and ask again.
+  - **The sponsor's confirm screen** on their campaign page, while `GET /campaigns/{id}/price` says `canConfirm`. If `confirmed.current` is false, the price changed: confirm again.
+  - **A team's "new seller terms" screen:** when `GET /seller-terms` says `upToDate: false`, show the text with a tick box, then `POST /seller-terms/accept` with `agreement.id` and `agreement.bodyHash`. Show it again on 409 `seller_terms_required`.
+  - **A seller's live listing:** an "Accept the fees" action (`POST /listings/{id}/accept-fees`) when `GET /listings/{id}` shows `feeAccepted` empty, or its hash differs from `feeStatementHash` (the rates changed). Without it, each order on that listing asks the seller first.
+  - **The PDF:** the same box in the signed order's PDF.
+  - **Then:** turn `FEE_STATEMENT_REQUIRED` on, staging first.

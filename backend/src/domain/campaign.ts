@@ -32,6 +32,7 @@ import { lockBrief } from "./brief-moves";
 import { createCampaignIn } from "./campaign-create";
 import { startAutoStaffing } from "./auto-staffing";
 import { startAutoSale } from "./ad-sale-auto";
+import { CampaignPriceError, priceNotConfirmed } from "./campaign-price";
 
 export class LaunchNeedsFullTransitionError extends Error {
   readonly status = 409;
@@ -248,6 +249,10 @@ export async function launchIn(
   if (!canTransitionCampaign(from, "ACTIVE")) {
     throw new IllegalCampaignTransitionError(from, "ACTIVE");
   }
+  /* POL-BE-119 — a managed campaign launches only on a price its sponsor confirmed, with its fees
+     (FEE_STATEMENT_REQUIRED). BTG's launch is refused with the reason; the automatic one waits. */
+  const waits = await priceNotConfirmed(tx, campaign);
+  if (waits) throw new CampaignPriceError(`Not launched. ${waits}`, 409, "price_not_confirmed");
 
   const claimed = await tx.campaign.updateMany({
     /* tenant-scope: the campaign the caller loaded in its own scope and locked; claimed on the state read under the lock. */

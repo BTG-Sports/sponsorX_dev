@@ -42,6 +42,8 @@ export const getMyProfile: RequestHandler = async (req, res) => {
       legalName: true,
       city: true,
       stateCode: true,
+      /* POL-BE-117 — the wizard's Country → Region → City pickers start from it. */
+      countryCode: true,
       sport: true,
       position: true,
       school: true,

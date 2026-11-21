@@ -1,0 +1,111 @@
+/* --------------------------------------------------------------------------
+   P9-FE-16 — the production board (/admin/next/production), drawn like the
+   redrawn admin desks. The page imports the applications desk's sheet first
+   (`.sx-ap-*`), then New sign-ups' (`.sx-su-*`: the row, the kind's mark,
+   the one link per row, the cards view), then this one for what is the
+   board's own.
+
+   - `.sx-pb-cols`        the list's columns: piece · kind · what it still
+                          needs · the button; folds on phones.
+   - `[data-kind]`        each kind of piece's hue (the word is always beside it).
+   - `.sx-pb-needs`       what a piece still needs, word for word.
+   - `.sx-pb-note`        worth knowing, never blocking.
+   - `.sx-pb-gates`       the four gates in their card: a tick or a ring.
+   - `.sx-pb-count`       "6 pieces shown of 14" under the list.
+   -------------------------------------------------------------------------- */
+
+/* ── the list ─────────────────────────────────────────────────────────── */
+
+.sx-ap-head.sx-pb-cols,
+.sx-ap-row.sx-pb-cols {
+  grid-template-columns: minmax(0, 2fr) 8.5rem minmax(0, 2.4fr) 8.5rem;
+}
+
+/* each kind of piece's hue, on its mark and its chip */
+.sx-pb .sx-su-avatar[data-kind="ASSIGNMENT"],
+.sx-pb .sx-su-kind[data-kind="ASSIGNMENT"] { --t: #63b4f8; }
+.sx-pb .sx-su-avatar[data-kind="CONTENT"],
+.sx-pb .sx-su-kind[data-kind="CONTENT"] { --t: #5eead4; }
+.sx-pb .sx-su-avatar[data-kind="ARTWORK"],
+.sx-pb .sx-su-kind[data-kind="ARTWORK"] { --t: #f0abfc; }
+.sx-pb .sx-su-avatar[data-kind="COVER"],
+.sx-pb .sx-su-kind[data-kind="COVER"] { --t: #a78bfa; }
+.sx-pb .sx-su-avatar[data-kind="PRESS_PDF"],
+.sx-pb .sx-su-kind[data-kind="PRESS_PDF"] { --t: #fcd34d; }
+
+.sx-pb-needs {
+  display: grid;
+  gap: 2px;
+  max-width: 100%;
+  font-size: 11.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  color: #cbd5e1;
+}
+.sx-pb-needs li { position: relative; padding-left: 12px; }
+.sx-pb-needs li::before {
+  content: "";
+  position: absolute;
+  top: 0.5em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  background: #6f7c92;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.sx-pb-note {
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  color: #8a96a3;
+}
+
+.sx-pb-count {
+  margin-top: 10px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #6f7c92;
+}
+
+/* phones and narrow screens: the piece and its button on top, then the
+   kind, then whose move it is and what it still needs */
+@media (max-width: 899px) {
+  .sx-ap-row.sx-pb-cols {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "who go" "kind kind" "state state";
+    gap: 10px 12px;
+    padding: 14px 16px;
+  }
+}
+
+/* ── the gates card ───────────────────────────────────────────────────── */
+
+.sx-pb-gates { display: grid; gap: 6px; margin-top: 4px; }
+.sx-pb-gates li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.25;
+  color: #9aa4b2;
+}
+.sx-pb-gates li[data-pass] { color: #e2e8f0; }
+.sx-pb-gate-mark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1.5px #6f7c92;
+}
+.sx-pb-gates li[data-pass] .sx-pb-gate-mark {
+  color: #0a0c10;
+  background: #4ade80;
+  box-shadow: 0 0 8px -1px rgba(74, 222, 128, 0.8);
+}
+@media (min-width: 480px) and (max-width: 1023px) {
+  /* the card takes a full row there (signups.css): the gates two by two */
+  .sx-pb-gates { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
+}

@@ -23,6 +23,8 @@ const NAV: NavItem[] = [
   { href: "/property/analytics", label: "Analytics", icon: "chart" },
   /* 3S7-FE-02 — rate and opportunity intelligence (Phase 3). */
   { href: "/property/intelligence", label: "Intelligence", icon: "trophy" },
+  /* POL-FE-104 — the organisation's own details and the manager's. */
+  { href: "/property/profile", label: "Profile", icon: "user" },
   { href: "/property/branding", label: "Branding", icon: "pen" },
   /* 2S1-FE-04 / 2S1-FE-08 — documents on file, and the account itself. */
   { href: "/property/documents", label: "Documents", icon: "file" },

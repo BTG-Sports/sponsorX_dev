@@ -324,3 +324,61 @@
     pass.
   - Railway's APP_URL matches each environment's upload rule (staging web URL, sponsorx.net).
   - Full suite 286 files, 4,033 tests.
+
+## Upload audit backend: live on staging and production (rcfworks)
+- **Merged:** #486, #488, #489, #490, #492 and #493.
+  - #484 was closed; its change came in through #486. #485 (main) is still open.
+  - #492's first e2e run failed: MinIO's server image is no longer published. CI now uses the e2e
+    store in strict mode (staging's upload rule and R2's signed-link checks). It passed.
+- **Promoted:** #494, main_development to main. The tracker conflict was resolved by keeping
+  main_development's copy, a checked superset.
+- **Deployed** (release 1ed6e196). The new after-deploy step passed on both environments: staging
+  checked 11:43:43Z, production 11:43:49Z, both ok.
+- **Done:** P9-BE-26, 27 and 28, and POL-BE-110, 111, 112 and 113.
+- **Reviewed for the owner:** the athlete campaign order template (`documentation/AthleteCampaignReference/`,
+  added 19:27) against the build.
+  - The legal terms (CAMPAIGN_ORDER.v2) match.
+  - Missing order details: order number, prompt (invited orders), deliverable format and length,
+    publish window, structured usage rights, paid media, structured exclusivity, disclosure
+    (invited orders), sponsor approval yes/no, non-cash consideration.
+  - Waiting on the owner: per-campaign payment timing, and a BTG countersignature. No tasks
+    raised yet.
+
+## POL-BE-116: every athlete order follows the order template (rcfworks, Code review)
+- **The owner's decisions (2026-11-19):**
+  - "whenever a create campaign is called, we have a page to build it right, include the details of
+    that form";
+  - the video form is the base for other media;
+  - payment timing is set per campaign;
+  - automation rules, no countersignature.
+- **Built:**
+  - order details on the brief and the campaign: the template's fields and each job's medium;
+  - copied onto offers and orders for each job, fixed when sent;
+  - order numbers `SX-<code>-<year>-<n>`;
+  - the builder's catalogue and code routes;
+  - BTG's PUT, locked after the first offer;
+  - automation holds: paid media with no pay stops staffing; a minor with paid media or exclusivity
+    is skipped;
+  - sponsor approval yes/no now decides review routing;
+  - the earning's pay-by follows the payment timing;
+  - `CAMPAIGN_ORDER.v3` wording.
+- **Dropped on reflection:** a sensitive-category hold. Its brief already waits for a person, and an
+  existing test expected an approved alcohol campaign to staff automatically.
+- **Checked:** full suite 288 files, 4,052 tests.
+- **Frontend:** POL-FE-116 (HeckerCreatives) builds the builder page and the athlete's order view.
+
+## POL-BE-116: the campaign order details, live on staging and production (rcfworks)
+- **Merged:** #497 (CI green), into main_development.
+- **Promoted:** #498, main_development to main; main's merge commits merged in first, no conflicts.
+- **Deployed** (release 1dddc57b). Both environments healthy afterwards, the storage upload check
+  passing at 14:10Z on each.
+- **Done:** POL-BE-116. POL-FE-116 (the builder page, the order page, BTG's held reasons) is
+  HeckerCreatives'; the routes are in polish.md item 116.
+
+## End of day (rcfworks)
+- **Done today, backend:** P9-BE-25, 26, 27 and 28 (SponsorX NEXT uploads), POL-BE-110 to 113
+  (upload checks), POL-BE-116 (campaign order details). All live on staging and production.
+- **Stage Progress:** today's row updated to the close of day, Phase 1 at 324 Done (S9 44), 21 days left.
+- **Open:** #499 and #500 (POL-BE-116 Done, tracker and log), CI green, waiting to be merged.
+- **For HeckerCreatives:** POL-FE-116 (campaign builder page, the athlete's order page, BTG's held
+  reasons) and P9-FE-13 to 16 (NEXT upload screens).

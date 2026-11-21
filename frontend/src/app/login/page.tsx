@@ -63,6 +63,10 @@ export default async function LoginPage() {
               <SignIn
                 routing="hash"
                 forceRedirectUrl="/portal"
+                /* POL-FE-118 — someone new (a sponsor who just sent a brief) signs UP
+                   through this widget; without this Clerk sent them to "/", the
+                   landing page, as if nothing had happened. */
+                signUpForceRedirectUrl="/portal"
                 appearance={{
                   /* Clerk defaults to its light theme — dark ink — which is
                      unreadable on the stage. These variables re-express the house

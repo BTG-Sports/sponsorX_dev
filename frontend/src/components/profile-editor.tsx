@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Badge, Card, Meter } from "@/components/ui";
+import { PlacePicker } from "@/components/place-picker";
+import type { Place } from "@/lib/places";
 import {
   agreements,
   athlete,
@@ -166,9 +168,11 @@ export function ProfileEditor({ initialSection }: { initialSection?: string }) {
   /* ---- form state, seeded from fixtures ---- */
   const [identity, setIdentity] = useState({
     displayName: athlete.displayName,
-    region: athlete.region,
     bio: athletePublic.about,
   });
+  /* POL-FE-117 — the place is picked, not typed. The sample athlete is
+     East African and lives in the DMV ("East Africa · DMV"): Maryland. */
+  const [place, setPlace] = useState<Place>({ countryCode: "US", regionCode: "MD", city: "" });
   const [sport, setSport] = useState({
     sport: athlete.sport,
     position: athlete.position,
@@ -352,13 +356,21 @@ export function ProfileEditor({ initialSection }: { initialSection?: string }) {
                       onChange={(e) => setIdentity({ ...identity, displayName: e.target.value })}
                     />
                   </Field>
-                  <Field label="Region" hint="Where you compete and live.">
-                    <input
-                      className={INPUT_CLS}
-                      value={identity.region}
-                      onChange={(e) => setIdentity({ ...identity, region: e.target.value })}
-                    />
-                  </Field>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <PlacePicker
+                    idPrefix="sx-pe-place"
+                    value={place}
+                    onChange={setPlace}
+                    hints={{ country: "Where you compete and live." }}
+                    field={({ key, id, label, hint, children }) => (
+                      <div key={key} className="min-w-0">
+                        <label htmlFor={id} className="text-[11px] font-medium text-text">{label}</label>
+                        {hint && <span className="mt-0.5 block text-[10px] text-faint">{hint}</span>}
+                        <div className="mt-1.5">{children}</div>
+                      </div>
+                    )}
+                  />
                 </div>
                 <Field label="Bio" hint="2–3 sentences — sponsors read this first.">
                   <textarea

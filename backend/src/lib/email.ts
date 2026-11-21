@@ -327,6 +327,10 @@ export type EmailTemplate =
   /* 3S0-BE-02 — the campaign is live: to the sponsor's admins, its athletes and a minor's guardian. */
   | "campaign.live"
   | "campaign.finalReportReady"
+  /* POL-BE-119 — a seller's listing fees changed: accept them again (or each order asks first). */
+  | "listing.feeRatesChanged"
+  /* POL-BE-119 — a fully staffed campaign: its sponsor confirms the price and its fees before launch. */
+  | "campaign.confirmPrice"
   /* P8-BE-12 — a campaign cancelled: each athlete whose order was cancelled; a cancel or change held for BTG; BTG's answer. */
   | "campaign.orderCancelled"
   | "campaign.changeHeld"

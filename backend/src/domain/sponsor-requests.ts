@@ -485,6 +485,50 @@ export async function confirmSponsorEmail(emailToken: string) {
   };
 }
 
+/**
+ * POL-BE-118 — the contact signs in before their request is approved.
+ *
+ * Owner, 2026-11-20: after sending a brief they signed in and were told
+ * "this address doesn't have a SponsorX account yet … apply on Get started",
+ * about a request they had just sent. Signing in with the request's own
+ * address proves the mailbox exactly as the confirmation link does (Clerk
+ * verifies it; auth/actor.ts already claims logins by it), so it confirms
+ * the email and the automatic checks run — approving it, if nothing else is
+ * missing, so the login exists and this very sign-in claims it.
+ *
+ * Returns where the newest request from this address stands, with a fresh
+ * request token for its status page (the sign-in proves the mailbox, as
+ * opening the emailed link does), or null when there is none.
+ */
+export async function sponsorRequestForSignIn(email: string): Promise<{
+  state: SponsorRequestState; businessName: string; missing: string[]; underReview: boolean; requestToken: string; opened: boolean;
+} | null> {
+  const address = email.trim().toLowerCase();
+  const found = await prisma.inquiry.findFirst({
+    /* tenant-scope: identity resolution — no actor and no tenant yet; the signed-in, verified address is the key, as for claiming a login. */
+    where: { email: { equals: address, mode: "insensitive" } },
+    select: SELECT, orderBy: { createdAt: "desc" },
+  });
+  if (!found) return null;
+  let opened = false;
+  if (found.state === "NEW" && !found.emailConfirmedAt) {
+    const confirmed = await prisma.$transaction(async (tx) => {
+      const n = await tx.inquiry.updateMany({
+        /* tenant-scope: the request found above for this address; only while still unconfirmed, so two sign-ins at once confirm once. */
+        where: { id: found.id, state: "NEW", emailConfirmedAt: null }, data: { emailConfirmedAt: new Date() },
+      });
+      if (n.count === 1) await audit(tx, SYSTEM(found.tenantId), "sponsorRequest.emailConfirmed", "Inquiry", found.id, { after: { email: found.email, via: "signIn" } });
+      return n.count === 1;
+    });
+    if (confirmed) opened = (await evaluateSponsorRequest(found.id)).outcome === "approve";
+  }
+  const status = await sponsorRequestStatus(issueSponsorRequestToken(found.id));
+  return {
+    state: status.state, businessName: status.businessName, missing: status.missing, underReview: status.underReview,
+    requestToken: issueSponsorRequestToken(found.id), opened,
+  };
+}
+
 /* ═══════════ POL-BE-18 — resend the confirmation, or fix the address ═══════════ */
 
 /** The confirmation email: a link bound to this request and address. Used by the intake form too. */

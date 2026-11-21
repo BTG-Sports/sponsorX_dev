@@ -45,6 +45,8 @@ import {
   type CampaignStaffing,
 } from "@/lib/campaign-stage";
 import { AutoStaffingToggle } from "@/components/auto-staffing-toggle";
+import { OrderSheet } from "@/components/order-sheet";
+import { orderHoldReasons, paidMediaNeedsPay, readOrderDetails, type OrderDetails } from "@/lib/order-details";
 import type { ApiCampaign } from "@/lib/sponsor-live";
 import { PACE_COPY, fmtRate, paceFor, paceProjection } from "@/lib/campaign-ui";
 import { demoState } from "@/lib/demo";
@@ -102,7 +104,33 @@ type LiveBoard = {
   canLaunch: boolean;
   /** POL-FE-52 — the hand stage moves this viewer is offered (Start staffing, Move to approval, Back to …). */
   moves: StageMove[];
+  /** POL-FE-116 — the order every athlete on this campaign reads (GET /campaigns/{id}/order-details); null when it can't be read. */
+  order: CampaignOrder | null;
 };
+
+/** GET /campaigns/{id}/order-details (POL-BE-116). */
+type CampaignOrder = { orderCode: string | null; orderCodeYear: number | null; details: OrderDetails; standardTerms: boolean; locked: boolean };
+
+/** The campaign's order, or null — a missing read hides the panel, never the campaign. */
+async function readCampaignOrder(id: string): Promise<CampaignOrder | null> {
+  try {
+    const res = await apiFetch(`/campaigns/${encodeURIComponent(id)}/order-details`);
+    if (!res.ok) return null;
+    const body = (await res.json()) as { orderCode?: unknown; orderCodeYear?: unknown; orderDetails?: unknown; standardTerms?: unknown; locked?: unknown };
+    const details = readOrderDetails(body.orderDetails);
+    if (!details) return null;
+    return {
+      orderCode: typeof body.orderCode === "string" ? body.orderCode : null,
+      orderCodeYear: typeof body.orderCodeYear === "number" ? body.orderCodeYear : null,
+      details,
+      standardTerms: body.standardTerms === true,
+      locked: body.locked === true,
+    };
+  } catch (e) {
+    if (e instanceof Error && /signed in/i.test(e.message)) throw e;
+    return null;
+  }
+}
 
 async function liveOps(id: string): Promise<LiveBoard | "missing" | { lacking: string; roles: string[] } | null> {
   /* No catch — an outage is an error page, never fixtures dressed as a real
@@ -112,10 +140,11 @@ async function liveOps(id: string): Promise<LiveBoard | "missing" | { lacking: s
   if (!who.actor.roles.some((r) => OPS_ROLES.includes(r))) return null;
   /* One round trip: the board, the campaign read for its stage, and the
      deal disputes that pause its orders. */
-  const [res, c, disputes] = await Promise.all([
+  const [res, c, disputes, order] = await Promise.all([
     apiFetch(`/campaigns/${encodeURIComponent(id)}/ops`),
     apiFetch(`/campaigns/${encodeURIComponent(id)}`),
     readPausingDisputes(),
+    readCampaignOrder(id),
   ]);
   if (res.status === 403) {
     if (!c.ok) return "missing";
@@ -133,6 +162,7 @@ async function liveOps(id: string): Promise<LiveBoard | "missing" | { lacking: s
     buttons: campaignButtons(stage?.state ?? ops.campaign.state, who.actor.roles),
     canLaunch: mayLaunchNow(stage?.state ?? ops.campaign.state, who.actor.roles),
     moves: stageMoves(stage?.state ?? ops.campaign.state, who.actor.roles),
+    order,
   };
 }
 
@@ -215,17 +245,42 @@ function StaffingPanel({ campaignId, stage, now, canLaunch, moves }: { campaignI
           </dl>
           {stop && (
             <div role="status" className="mt-4 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2.5 text-xs leading-relaxed">
-              <p className="font-semibold text-warn">Automatic staffing stopped — over to BTG</p>
-              <p className="mt-0.5 text-muted [overflow-wrap:anywhere]">{stop.reason}</p>
+              {/* POL-FE-116 — a hold by the order rules, reason by reason, and what BTG does next. */}
+              {orderHoldReasons(stop.reason).length ? (
+                <>
+                  <p className="font-semibold text-warn">Held by the order rules — no order goes out until BTG acts</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted [overflow-wrap:anywhere]">
+                    {orderHoldReasons(stop.reason).map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1.5 text-faint">The order the rules read is below. BTG can still offer athletes by hand from the Matching Studio.</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold text-warn">Automatic staffing stopped — over to BTG</p>
+                  <p className="mt-0.5 text-muted [overflow-wrap:anywhere]">{stop.reason}</p>
+                </>
+              )}
             </div>
           )}
           {s.skips && s.skips.length > 0 && (
             <ul className="mt-4 space-y-1.5 text-xs text-muted" aria-label="Skipped athletes">
-              {s.skips.map((k) => (
-                <li key={k.athleteId} className="min-w-0 [overflow-wrap:anywhere]">
-                  <span className="font-medium text-text">{k.displayName ?? "An athlete"}</span> skipped — {k.reason}
-                </li>
-              ))}
+              {s.skips.map((k) => {
+                const held = orderHoldReasons(k.reason);
+                return (
+                  <li key={k.athleteId} className="min-w-0 [overflow-wrap:anywhere]">
+                    <span className="font-medium text-text">{k.displayName ?? "An athlete"}</span>{" "}
+                    {held.length ? (
+                      <>
+                        held for BTG by the order rules — {held.join(" ")} <span className="text-faint">BTG can still offer by hand.</span>
+                      </>
+                    ) : (
+                      <>skipped — {k.reason}</>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
           {editable && (
@@ -237,6 +292,42 @@ function StaffingPanel({ campaignId, stage, now, canLaunch, moves }: { campaignI
         </>
       )}
     </Card>
+  );
+}
+
+/** POL-FE-116 — the order every athlete on this campaign reads, laid out like
+ *  the Athlete Campaign Order template, with what would hold it for BTG. */
+function OrderPanel({ order, campaign, sponsor, studioHref }: { order: CampaignOrder; campaign: string; sponsor: string; studioHref: string }) {
+  const unpaid = paidMediaNeedsPay(order.details);
+  const number = order.orderCode && order.orderCodeYear ? `SX-${order.orderCode}-${order.orderCodeYear}-…` : null;
+  return (
+    <section className="sx-animate sx-delay-2">
+      <SectionHeading
+        title="The athlete's order"
+        hint={[
+          number ? `Orders numbered ${number}` : null,
+          order.standardTerms ? "BTG's standard terms — this campaign was made before the builder" : "As the sponsor built it",
+          order.locked ? "fixed: an offer or order has gone out" : "can still change: nothing sent yet",
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      />
+      <Card>
+        {unpaid && (
+          <div role="status" className="mb-4 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2.5 text-xs leading-relaxed">
+            <p className="font-semibold text-warn">Paid media with no extra pay</p>
+            <p className="mt-0.5 text-muted">
+              The order rules hold every order on this campaign for BTG until the athlete&rsquo;s extra pay for paid media is set.{" "}
+              <Link className="underline hover:text-text" href={studioHref}>
+                Offer by hand in the Matching Studio
+              </Link>
+              .
+            </p>
+          </div>
+        )}
+        <OrderSheet heading="" input={{ details: order.details, campaign, sponsor, orderNumber: number }} />
+      </Card>
+    </section>
   );
 }
 
@@ -258,6 +349,7 @@ function LiveOpsView({
   buttons,
   canLaunch,
   moves,
+  order,
   back,
   initial,
 }: LiveBoard & {
@@ -376,6 +468,7 @@ function LiveOpsView({
       )}
       {stage && <StagePanel stage={stage} />}
       {stage && <StaffingPanel campaignId={c.id} stage={stage} now={now} canLaunch={canLaunch} moves={moves} />}
+      {order && <OrderPanel order={order} campaign={stage?.name ?? c.name} sponsor={c.sponsorName} studioHref={studioHref} />}
 
       <section className="sx-animate sx-delay-2">
         <SectionHeading

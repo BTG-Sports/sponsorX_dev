@@ -14,7 +14,7 @@
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
 import type { ApiCheckout, ApiOrderAcceptance, ApiQuote, Quote } from "@/lib/checkout-gate";
 import type { SponsorRefund } from "@/lib/refunds-live";
-import { US_STATES, isUsState } from "@/lib/onboarding-live";
+import { placeCountry, placeRegion, type Place } from "@/lib/places";
 import type { ApiDealAgreementSummary } from "@/lib/deal-chat";
 
 /* ------------------------------------------------------------------ shapes */
@@ -271,7 +271,10 @@ export type ShopFilters = {
   kind: string;
   category: string;
   sport: string;
+  /** POL-FE-117 — where: a catalogue country, its region, a city of the region. */
+  countryCode: string;
   stateCode: string;
+  city: string;
   minPrice: string;
   maxPrice: string;
   availableFrom: string;
@@ -283,7 +286,9 @@ export const FILTER_KEYS: (keyof ShopFilters)[] = [
   "kind",
   "category",
   "sport",
+  "countryCode",
   "stateCode",
+  "city",
   "minPrice",
   "maxPrice",
   "availableFrom",
@@ -309,9 +314,27 @@ export const MIN_PRICE_BANDS = [
   { value: "500000", label: "$5,000+" },
 ];
 
-/** The "State" filter's options: the US state codes (and DC), by name — a
- *  fixed list, so the control never flashes free text. */
-export const STATE_OPTIONS = US_STATES.map((s) => ({ value: s.code, label: `${s.name} (${s.code})` }));
+/**
+ * POL-FE-117 — the "Where" filter, as the catalogue reads it: Country →
+ * region → city, each part kept only if it is on the list (a region of that
+ * country, a city with its region). A region or city with no country is a US
+ * one — what `?stateCode=MD` meant before East Africa joined. `dropped` names
+ * a part that wasn't on the list, for "Not applied".
+ */
+export function shopPlace(f: Pick<ShopFilters, "countryCode" | "stateCode" | "city">): { place: Place; dropped: boolean } {
+  const empty: Place = { countryCode: "", regionCode: "", city: "" };
+  const city = f.city.trim().slice(0, 120);
+  const given = f.countryCode.trim().toUpperCase();
+  const cc = given || (f.stateCode.trim() || city ? "US" : "");
+  if (!cc) return { place: empty, dropped: false };
+  if (!placeCountry(cc)) return { place: empty, dropped: true };
+  /* A country only assumed from a bad region or a lone city narrows nothing. */
+  const country = given ? { ...empty, countryCode: cc } : empty;
+  if (!f.stateCode.trim()) return { place: country, dropped: Boolean(city) };
+  const region = placeRegion(cc, f.stateCode);
+  if (!region) return { place: country, dropped: true };
+  return { place: { countryCode: cc, regionCode: region.code, city }, dropped: false };
+}
 
 const isBand = (bands: { value: string }[], v: string) => bands.some((b) => b.value === v);
 
@@ -341,10 +364,11 @@ export function shopSearchExtras(sp: SearchParams): { filters: ShopFilters; extr
     else ignored.push("category");
   }
   if (f.sport) extras.sport = f.sport.slice(0, 60);
-  if (f.stateCode) {
-    if (isUsState(f.stateCode.toUpperCase())) extras.stateCode = f.stateCode.toUpperCase();
-    else ignored.push("state");
-  }
+  const { place, dropped } = shopPlace(f);
+  if (place.countryCode) extras.countryCode = place.countryCode;
+  if (place.regionCode) extras.stateCode = place.regionCode;
+  if (place.city) extras.city = place.city;
+  if (dropped) ignored.push("place");
   if (f.minPrice) {
     if (isBand(MIN_PRICE_BANDS, f.minPrice)) extras.minPrice = f.minPrice;
     else ignored.push("price from");
@@ -374,10 +398,12 @@ export function hasFilters(f: ShopFilters): boolean {
  *  of a filter's options reads as "any" (it's named under "Not applied"),
  *  never as a blank or a stale label. */
 export function shownFilters(f: ShopFilters): ShopFilters {
-  const code = f.stateCode.toUpperCase();
+  const { place } = shopPlace(f);
   return {
     ...f,
-    stateCode: isUsState(code) ? code : "",
+    countryCode: place.countryCode,
+    stateCode: place.regionCode,
+    city: place.city,
     minPrice: isBand(MIN_PRICE_BANDS, f.minPrice) ? f.minPrice : "",
     maxPrice: isBand(PRICE_BANDS, f.maxPrice) ? f.maxPrice : "",
   };
@@ -482,7 +508,8 @@ export function demoShopSearch(
   const q = filters.q.toLowerCase();
   const sport = filters.sport.toLowerCase();
   const shown = shownFilters(filters);
-  const stateCode = shown.stateCode;
+  /* The demo deck is all team listings, and teams are in the US (the API's rule: a team's listing is where the team is). */
+  const where = { country: shown.countryCode, region: shown.stateCode, city: shown.city.toLowerCase() };
   const minPrice = shown.minPrice ? Number(shown.minPrice) : null;
   const maxPrice = shown.maxPrice ? Number(shown.maxPrice) : null;
   const from = filters.availableFrom ? dayToIso(filters.availableFrom) : null;
@@ -493,7 +520,9 @@ export function demoShopSearch(
     if (filters.kind && r.item.kind !== filters.kind) return false;
     if (filters.category && !r.item.categories.includes(filters.category)) return false;
     if (sport && !(r.athlete?.sport ?? "").toLowerCase().includes(sport)) return false;
-    if (stateCode && (r.property?.stateCode ?? "") !== stateCode) return false;
+    if (where.country && where.country !== "US") return false;
+    if (where.region && (r.property?.stateCode ?? "") !== where.region) return false;
+    if (where.city && (r.property?.city ?? "").toLowerCase() !== where.city) return false;
     if (minPrice !== null && r.item.priceCents < minPrice) return false;
     if (maxPrice !== null && r.item.priceCents > maxPrice) return false;
     if (from && r.item.availableUntil && r.item.availableUntil < from) return false;

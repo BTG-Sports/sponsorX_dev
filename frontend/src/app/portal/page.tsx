@@ -4,6 +4,7 @@ import { SignOutButton } from "@clerk/nextjs";
 import { Logo } from "@/components/logo";
 import { currentUser } from "@clerk/nextjs/server";
 import { fetchActor } from "@/server/api";
+import { pendingWords } from "@/lib/pending-words";
 import { portalFor } from "@/server/portal";
 
 /* --------------------------------------------------------------------------
@@ -45,6 +46,17 @@ export default async function PortalPage() {
      a different one from the address BTG provisioned. */
   const clerkUser = await currentUser();
   const email = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
+  /* POL-BE-118 — what this address applied for, when it did: the page speaks
+     about that application instead of telling someone who just applied to
+     apply (owner, 2026-11-20: "this is super misleading"). */
+  const pending = result.status === "unprovisioned" ? result.pending ?? null : null;
+  const said = pendingWords(pending);
+  const who = email ? (
+    <>
+      {" "}
+      as <span className="text-text">{email}</span>
+    </>
+  ) : null;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6 py-12">
@@ -53,30 +65,54 @@ export default async function PortalPage() {
           <Logo className="h-10" />
         </div>
 
-        <h1 className="mt-8 text-lg font-semibold tracking-tight">
-          Your account isn&rsquo;t set up yet
-        </h1>
+        {said ? (
+          <>
+            <h1 className="mt-8 text-lg font-semibold tracking-tight">{said.heading}</h1>
+            <p className="mt-3 text-xs leading-relaxed text-muted">
+              You signed in{who}. {said.lead}
+            </p>
+            {said.todo.length > 0 && (
+              <ul className="mx-auto mt-4 max-w-xs space-y-1.5 text-left text-xs text-text">
+                {said.todo.map((t) => (
+                  <li key={t} className="flex gap-2">
+                    <span aria-hidden="true" className="text-accent">•</span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {said.after && <p className="mt-4 text-xs leading-relaxed text-muted">{said.after}</p>}
+            {said.action && (
+              <Link
+                href={said.action.href}
+                className="mt-6 inline-flex min-h-10 items-center rounded-lg bg-primary px-4 text-xs font-semibold text-cta-ink transition-opacity hover:opacity-90"
+              >
+                {said.action.label}
+              </Link>
+            )}
+          </>
+        ) : (
+          <>
+            <h1 className="mt-8 text-lg font-semibold tracking-tight">
+              Your account isn&rsquo;t set up yet
+            </h1>
 
-        <p className="mt-3 text-xs leading-relaxed text-muted">
-          You signed in successfully
-          {email ? (
-            <>
-              {" "}
-              as <span className="text-text">{email}</span>
-            </>
-          ) : null}
-          , but this address doesn&rsquo;t have a SponsorX account yet. Athletes,
-          sponsors and teams or venues get one by applying on{" "}
-          <Link href="/get-started" className="text-text underline underline-offset-2">
-            Get started
-          </Link>
-          .
-        </p>
+            <p className="mt-3 text-xs leading-relaxed text-muted">
+              You signed in successfully{who}, but no application or account
+              uses this address. Athletes, sponsors and teams or venues get an
+              account by applying on{" "}
+              <Link href="/get-started" className="text-text underline underline-offset-2">
+                Get started
+              </Link>
+              .
+            </p>
 
-        <p className="mt-3 text-xs leading-relaxed text-muted">
-          Already applied? Ask your BTG contact to check on access for this
-          address.
-        </p>
+            <p className="mt-3 text-xs leading-relaxed text-muted">
+              Applied with a different address? Sign out and sign in with that
+              one.
+            </p>
+          </>
+        )}
 
         <div className="mt-7 flex items-center justify-center gap-4 text-[11px]">
           <SignOutButton redirectUrl="/">

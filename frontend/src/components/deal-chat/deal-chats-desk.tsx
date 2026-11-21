@@ -12,7 +12,7 @@ import { KIND_WORD, agoShort, reviewRows, type ApiDealChat, type ApiDealReviewIt
 import { SAMPLE_NOTE } from "@/lib/deal-chat-sample";
 
 import { Glyph } from "./chat-bits";
-import { onDealSocket } from "./deal-socket";
+import { onDealInbox } from "./deal-socket";
 import { Messenger } from "./messenger";
 
 import "./deal-chat.css";
@@ -141,11 +141,11 @@ export function DealChatsDesk({ reviews, rows, initialChat, readAt, sample }: {
   const pathname = usePathname();
   const params = useSearchParams();
   const router = useRouter();
-  /* Live: a message was held, reported, released or kept back somewhere — the desk's lists are read again. */
+  /* Live, while the desk is on screen (BTG's inbox pass): a message was held, reported, released or kept back somewhere — the desk's lists are read again. */
   useEffect(() => {
     if (sample) return;
     let soon: ReturnType<typeof setTimeout> | undefined;
-    const off = onDealSocket(() => {
+    const off = onDealInbox(() => {
       clearTimeout(soon);
       soon = setTimeout(() => router.refresh(), 600);
     });

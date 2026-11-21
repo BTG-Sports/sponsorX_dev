@@ -5,8 +5,9 @@ import { revalidatePath } from "next/cache";
 
 import { apiFetch } from "@/server/api";
 import { edgeHeadersFrom } from "@/server/edge";
-import { dealChatRows, dealChatSummaries, dealSocketTicket, type DealSocketTicket } from "@/server/deal-chat";
+import { dealChatRows, dealChatSummaries, dealLivePass } from "@/server/deal-chat";
 import { dealRefusal, type ApiDealAgreement, type ApiDealChat, type ChatRow } from "@/lib/deal-chat";
+import { liveWant, type LivePassResult, type LiveWant } from "@/lib/deal-live";
 
 /* --------------------------------------------------------------------------
    Deal Chat's writes, and the reads the open chat repeats — 2S4-FE-07 / -08 / -09.
@@ -75,9 +76,16 @@ export async function loadDealUnreadAction(): Promise<{ unread: number; chats: n
   return { unread: list.reduce((n, c) => n + c.unread, 0), chats: list.length };
 }
 
-/** What the browser needs to open the live socket, or null when there is none to open (deal-socket.ts). */
-export async function dealSocketTicketAction(): Promise<DealSocketTicket | null> {
-  return dealSocketTicket().catch(() => null);
+/**
+ * A pass to the live socket service for what the browser has on screen: one
+ * chat, or the Messages list (2S4-FE-10, components/deal-chat/deal-socket.ts).
+ * The API decides whether there is one; anything but a chat's id or the list
+ * is refused here before it is asked.
+ */
+export async function dealLivePassAction(want: LiveWant): Promise<LivePassResult> {
+  const asked = liveWant(want);
+  if (!asked) return { ok: false, why: "refused" };
+  return dealLivePass(asked).catch((): LivePassResult => ({ ok: false, why: "later" }));
 }
 
 /** The caller's side has read the chat up to now. */

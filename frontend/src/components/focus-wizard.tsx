@@ -50,8 +50,14 @@ export function FocusShell({
   progressLabel,
   progressText,
   exit,
+  home = { href: "/", label: "SponsorX home" },
+  boot = true,
   children,
 }: {
+  /** False on a page with no boot screen (a portal page): the entrance plays at once. */
+  boot?: boolean;
+  /** Where the logo goes. A wizard inside a portal points it at that portal (POL-FE-116). */
+  home?: { href: string; label: string };
   tone?: "sponsor" | "athlete";
   /** The step on screen, from 0. */
   step: number;
@@ -68,6 +74,7 @@ export function FocusShell({
   const lights = done ? LIGHTS_DONE : LIGHTS[step % LIGHTS.length];
   return (
     <BriefStage
+      boot={boot}
       data-tone={tone === "athlete" ? "athlete" : undefined}
       className="sx-stage sx-brief relative isolate flex min-h-svh flex-col overflow-x-clip"
     >
@@ -91,7 +98,7 @@ export function FocusShell({
 
       <header className="bx-chrome relative z-10">
         <div className="flex items-center justify-between gap-4 px-5 py-4 sm:px-8 lg:px-10 lg:py-5">
-          <Link href="/" className="shrink-0 leading-none" aria-label="SponsorX home">
+          <Link href={home.href} className="shrink-0 leading-none" aria-label={home.label}>
             <Logo className="h-7 sm:h-8" />
           </Link>
           <Link

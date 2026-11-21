@@ -30,6 +30,7 @@
  * manager reads. A new name goes to the property's Zoho account once.
  */
 import type { Prisma } from "../generated/prisma/client";
+import { catalogueCity } from "./places";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import { enqueue } from "../db/outbox";
@@ -221,6 +222,17 @@ function diff(p: PropertyRow, input: IdentityChange): { changes: IdentityChange;
     const st = input.stateCode.toUpperCase();
     if (!US_STATES.has(st)) throw new PropertyProfileError("stateCode: a US state code.");
     if (st !== p.stateCode) { changes.stateCode = st; before.stateCode = p.stateCode ?? undefined; }
+  }
+  /* POL-BE-117 — the city is picked from the state's places (domain/places.ts),
+     checked when it changes or the state moves under it; a city typed before
+     the list existed doesn't block an unrelated edit. */
+  const cityMoves = changes.stateCode !== undefined || changes.city !== undefined;
+  const cityNow = changes.city !== undefined ? changes.city : p.city;
+  if (cityMoves && cityNow && cityNow.trim()) {
+    const st = changes.stateCode ?? p.stateCode;
+    const city = st ? catalogueCity("US", st, cityNow) : null;
+    if (!city) throw new PropertyProfileError(st ? `Choose the city from the list for ${st}.` : "Choose the state before the city.");
+    if (city !== p.city) { changes.city = city; before.city = p.city; } else { delete changes.city; delete before.city; }
   }
   if (input.details !== undefined) {
     if (!p.onboarding) throw new PropertyProfileError("BTG keeps this organisation's details. Ask BTG to change them.");

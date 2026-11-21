@@ -585,7 +585,7 @@ export const content: HelpContent = {
       steps: [
         {
           title: "Open Packages",
-          body: "In the left menu, under Marketplace, click \"Packages\". \"+ New request\" on the dashboard opens the same page.",
+          body: "In the left menu, under Marketplace, click \"Packages\". To describe a campaign of your own instead, click \"+ Create a campaign\" on the dashboard, Campaigns or Requests.",
           route: "/sponsor/marketplace",
           shot: "sponsor/request-a-campaign-1",
           capture: {"highlight":"locator('aside.sx-shell-aside').getByRole('link', { name: 'Packages' })","needs":"packages or job types published by BTG"},

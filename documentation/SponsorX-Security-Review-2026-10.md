@@ -196,7 +196,7 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 - `next` 16.3.5 → 16.3.8 (critical: RCE in `next/og`) and `eslint-config-next` to match.
 - `vite` 7.1.12 → 7.3.6.
 - `dompurify` 3.4.16 (lockfile).
-- Overrides: `uuid` ^11.1.1 under `exceljs`, `mysql2` 3.24.5 under the `prisma` CLI, `deepmerge-ts` 8.0.2 under `@prisma/config`.
+- Overrides: `uuid` ^11.1.1 under `exceljs`, `mysql2` 3.24.5 under the `prisma` CLI, `deepmerge-ts` 8.0.2 under `@prisma/config`; `effect` 3.22.5 everywhere (added 2026-11-20).
 
 **Test:**
 - `npm run audit:check` (CI).
@@ -359,6 +359,7 @@ Every number below comes from running `npm audit --json` on the root lockfile. T
 | `uuid` | GHSA-w5hq-g745-h8pq (moderate) | `exceljs@4.4.0`, production | Override `exceljs > uuid ^11.1.1`. npm's own suggestion was to downgrade exceljs to 3.4. exceljs only calls `require('uuid').v4`, which uuid 11's CommonJS build provides. Checked with a conditional-formatting workbook written and read back, which is the code path that calls v4. |
 | `mysql2` | GHSA-3f6p-5ww8-9rcr, GHSA-rgwj-5xj2-c3m3 (high) | `prisma@7.10.0` CLI, dev | Override `prisma > mysql2 3.24.5` (same major). npm's suggestion was a downgrade to Prisma 6. We use Postgres only. |
 | `deepmerge-ts` | GHSA-ggr8-5vv4-36mx (high) | `@prisma/config@7.10.0`, dev | Override `@prisma/config > deepmerge-ts 8.0.2`. 7.10.0 is the newest Prisma 7, and 8.0 is only a release candidate. Checked with `prisma generate`, `prisma validate` and `prisma migrate deploy` on the test database, plus the whole backend suite. |
+| `effect` | GHSA-7589-6fvf-x4pw (high, ReDoS in `Schema.TemplateLiteral`) — added 2026-11-20 | `@prisma/config@7.10.0` (pins exactly 3.20.0), dev; `@hookform/resolvers` (optional peer `^3.10.3`), frontend | Override `effect` **3.22.5** (same major, the newest 3.x; every version up to 3.22.0 is in range). npm's suggestion was a downgrade to Prisma 6.12. npm did not re-resolve the old lockfile entry (and dropped the package when it was deleted), so the lockfile's `effect` entry was set to 3.22.5 by hand, with the registry's integrity; `npm ci` installs it and `npm ls` reports it overridden. Checked with `prisma generate`, `prisma validate` and `prisma migrate deploy` on the test database, both builds, lint, and both full suites. |
 
 **The lockfile change is limited to these fixes.** Comparing package versions before and after: 19 entries removed and 45 added. They are exactly the packages above, plus `vite` 7.3's own `esbuild` 0.28.2 and its 26 platform binaries, plus `sql-escaper` (a dependency of mysql2 3.24). Nothing else moved. The line-based `git diff` looks large only because hoisting reordered entries.
 

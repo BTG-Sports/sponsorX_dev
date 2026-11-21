@@ -57,6 +57,7 @@ import { provisionGuardianLoginIn } from "./athlete-login";
 import { requiresGuardian } from "./guardian-rules";
 import { safeFilename } from "./onboarding-documents";
 import { majorityOf, refreshMajorityIn } from "./age-of-majority";
+import { checkPlace } from "./places";
 import { sendGuardianSetupEmail } from "./athlete-signup";
 import { rerunComingOfAgeIn } from "./coming-of-age";
 import { ageBandFor } from "./age-of-majority-rules";
@@ -67,7 +68,7 @@ type Tx = Prisma.TransactionClient;
 
 /** The Athlete columns an ordinary edit may carry, by §11 section. */
 export const SECTION_FIELDS = {
-  identity: ["displayName", "city", "stateCode"],
+  identity: ["displayName", "city", "stateCode", "countryCode"],
   sport: ["sport", "position", "school", "level", "gradYear", "achievements"],
   capabilities: ["contentCapabilities"],
   interests: ["brandInterests"],
@@ -234,19 +235,43 @@ async function tellBtg(tx: Tx, tenantId: string, a: { id: string; displayName: s
 export async function submitProfileChange(actor: Actor, athleteId: string, input: ProfileChangeInput) {
   assertAllowed(actor, "athleteProfileChange", "write");
   const proposed = flattenInput(input);
+  /* POL-BE-117 — codes compare upper-case, so "tx" is not a move from "TX". */
+  for (const k of ["stateCode", "countryCode"] as const) {
+    if (typeof proposed.fields[k] === "string") proposed.fields[k] = (proposed.fields[k] as string).trim().toUpperCase();
+  }
 
   const out = await prisma.$transaction(async (tx) => {
     const athlete = await tx.athlete.findFirst({
       where: { ...whereFor(actor, "athlete", "write"), id: athleteId },
       select: {
         id: true, tenantId: true, state: true, legalName: true, email: true, birthDate: true, ageBand: true, guardianId: true,
-        countryCode: true, majorityAge: true, ...ATHLETE_FIELDS_SELECT,
+        majorityAge: true, ...ATHLETE_FIELDS_SELECT, /* countryCode: in the identity fields (POL-BE-117) */
       },
     });
     if (!athlete) throw new ForbiddenError("athleteProfileChange", "write");
     if (!(POST_APPROVAL_STATES as readonly string[]).includes(athlete.state)) throw new ProfileNotEditableError(athlete.state);
 
     const ordinary = diffAgainst(proposed.fields, athlete);
+    /* POL-BE-117 — a new place must be on the list (domain/places.ts): only
+       what this edit changes is checked, so a city typed before the list
+       existed doesn't block an unrelated edit. */
+    const countryChanged = "countryCode" in ordinary.fields;
+    const regionChanged = countryChanged || "stateCode" in ordinary.fields;
+    const nextCountry = countryChanged ? (ordinary.fields.countryCode as string) : athlete.countryCode;
+    const nextRegion = "stateCode" in proposed.fields ? ((proposed.fields.stateCode as string | null | undefined) ?? null) : athlete.stateCode;
+    if (regionChanged || "city" in ordinary.fields) {
+      const nextCity = "city" in proposed.fields ? ((proposed.fields.city as string | null | undefined) ?? null) : athlete.city;
+      const checked = checkPlace({
+        countryCode: nextCountry, regionCode: nextRegion, city: nextCity,
+        countryChanged, regionChanged, checkCity: regionChanged || "city" in ordinary.fields,
+      });
+      if (checked.city !== athlete.city) ordinary.fields.city = checked.city;
+      else delete ordinary.fields.city;
+      /* A move to a new country lands on the region named with it, even when the
+         code happens to match the old one (KE "02" after TZ "02"). */
+      if (countryChanged) ordinary.fields.stateCode = nextRegion;
+      ordinary.sections = (Object.keys(SECTION_FIELDS) as ChangeSection[]).filter((s) => SECTION_FIELDS[s].some((f) => f in ordinary.fields));
+    }
     const newLegal = input.identity?.legalName?.trim();
     const legalChanges = Boolean(newLegal && newLegal !== athlete.legalName);
     const newBirth = input.identity?.birthDate ?? null;
@@ -266,22 +291,32 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
 
     /* ── the date of birth and the place: applied now, adulthood worked out again (2S1-BE-12) ── */
     let birthDate = birthChanges ? new Date(`${newBirth}T00:00:00.000Z`) : athlete.birthDate;
-    let moved = "stateCode" in ordinary.fields;
+    /* POL-BE-117 — a new country is a move as much as a new state is. */
+    let moved = "stateCode" in ordinary.fields || "countryCode" in ordinary.fields;
     let majority = moved
-      ? await majorityOf(tx, athlete.tenantId, athlete.countryCode, (ordinary.fields.stateCode as string | null | undefined) ?? null)
+      ? await majorityOf(tx, athlete.tenantId, nextCountry, nextRegion)
       : { age: athlete.majorityAge };
     /* With a date of birth on file the band follows it, so a stale band can't keep an adult a minor (or the reverse). */
     let ageBand = birthDate && (birthChanges || moved) ? ageBandFor(birthDate, majority.age, now) : athlete.ageBand;
     /* POL-BE-02 — a minor made an adult by their own edit (or their guardian's) is never applied by the edit:
        the new date of birth and the move wait for BTG (heldAdulthood, below). The rest of the edit goes on. */
-    let heldAdulthood: { birthDate?: string; stateCode?: string | null } | null = null;
+    let heldAdulthood: { birthDate?: string; stateCode?: string | null; countryCode?: string; city?: string | null } | null = null;
     const asked = { birthDate, ageBand, majorityAge: majority.age };
     if ((birthChanges || moved) && requiresGuardian(athlete) && !requiresGuardian(asked)) {
+      /* POL-BE-117 — the whole place waits together (country, region and the
+         city in it), so the record never shows a city of one region filed
+         under another. */
       heldAdulthood = {
         ...(birthChanges ? { birthDate: newBirth! } : {}),
-        ...(moved ? { stateCode: (ordinary.fields.stateCode as string | null | undefined) ?? null } : {}),
+        ...(moved ? { stateCode: nextRegion } : {}),
+        ...(moved && "countryCode" in ordinary.fields ? { countryCode: nextCountry } : {}),
+        ...(moved && "city" in ordinary.fields ? { city: (ordinary.fields.city as string | null | undefined) ?? null } : {}),
       };
       delete applied.stateCode;
+      if (moved) {
+        delete applied.countryCode;
+        delete applied.city;
+      }
       birthDate = athlete.birthDate;
       moved = false;
       majority = { age: athlete.majorityAge };
@@ -567,15 +602,21 @@ async function applyLegalNameIn(
  * an adult with a guardian (coming-of-age.ts).
  */
 async function applyAdulthoodIn(tx: Tx, actor: Actor, c: { id: string; tenantId: string; athleteId: string; fields: Prisma.JsonValue }, now: Date) {
-  const f = c.fields as { birthDate?: string; stateCode?: string | null };
+  const f = c.fields as { birthDate?: string; stateCode?: string | null; countryCode?: string; city?: string | null };
   const before = await tx.athlete.findFirstOrThrow({
     /* tenant-scope: the change's own athlete, in the change's tenant. */
-    where: { tenantId: c.tenantId, id: c.athleteId }, select: { birthDate: true, stateCode: true, ageBand: true },
+    where: { tenantId: c.tenantId, id: c.athleteId }, select: { birthDate: true, stateCode: true, countryCode: true, ageBand: true },
   });
   const birthDate = f.birthDate ? new Date(`${f.birthDate}T00:00:00.000Z`) : before.birthDate;
+  /* POL-BE-117 — a held move carries its country and city with the region. */
+  const place = {
+    ...("stateCode" in f ? { stateCode: f.stateCode } : {}),
+    ...(f.countryCode ? { countryCode: f.countryCode } : {}),
+    ...("city" in f ? { city: f.city ?? null } : {}),
+  };
   /* tenant-scope: the change's own athlete, loaded just above. */
-  await tx.athlete.update({ where: { id: c.athleteId }, data: { ...(f.birthDate ? { birthDate } : {}), ...("stateCode" in f ? { stateCode: f.stateCode } : {}) }, select: { id: true } });
-  const majority = "stateCode" in f ? await refreshMajorityIn(tx, c.tenantId, c.athleteId) : null;
+  await tx.athlete.update({ where: { id: c.athleteId }, data: { ...(f.birthDate ? { birthDate } : {}), ...place }, select: { id: true } });
+  const majority = "stateCode" in f || f.countryCode ? await refreshMajorityIn(tx, c.tenantId, c.athleteId) : null;
   const age = majority?.age ?? (await tx.athlete.findFirstOrThrow({ /* tenant-scope: as above. */ where: { tenantId: c.tenantId, id: c.athleteId }, select: { majorityAge: true } })).majorityAge;
   const ageBand = birthDate ? ageBandFor(birthDate, age, now) : before.ageBand;
   /* tenant-scope: as above. */
@@ -586,7 +627,7 @@ async function applyAdulthoodIn(tx: Tx, actor: Actor, c: { id: string; tenantId:
   const moved = await tx.athleteProfileChange.updateMany({ where: { id: c.id, state: "PENDING" }, data: { state: "APPROVED", appliedAt: now, reviewedAt: now, reviewedBy: actor.userId, checkNotes: notes } });
   if (moved.count !== 1) throw new ChangeNotPendingError("gone");
   await audit(tx, actor, "athlete.sensitiveEdit", "Athlete", c.athleteId, {
-    before: { birthDate: isoDay(before.birthDate), stateCode: before.stateCode ?? null }, after: { ...f, changeId: c.id, appliedBy: "BTG", comingOfAge: coming },
+    before: { birthDate: isoDay(before.birthDate), stateCode: before.stateCode ?? null, ...(f.countryCode ? { countryCode: before.countryCode } : {}) }, after: { ...f, changeId: c.id, appliedBy: "BTG", comingOfAge: coming },
   });
 }
 

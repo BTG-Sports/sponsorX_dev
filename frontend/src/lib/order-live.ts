@@ -36,6 +36,11 @@ export type ApiOrder = {
     body: string | null;
   } | null;
   acceptance: { acceptedAt: string; bodyHash: string; version: number } | null;
+  /** POL-BE-116 — "SX-<code>-<year>-<n>"; null on an order made before it. */
+  orderNumber?: string | null;
+  /** POL-BE-116 — the order's details as the template lays them out; null on an
+   *  order made before them. Read it with readOrderDetails (lib/order-details). */
+  orderDetails?: unknown;
 };
 
 export type AcceptResult = { ok: true; state: string } | { ok: false; message: string; reload?: boolean };

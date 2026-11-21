@@ -56,6 +56,8 @@ import { athleteFloor, offerParty, PARTY_SELECT } from "./offer-desk";
 import { OfferError } from "./offer";
 import { restrictionConflicts } from "./restrictions";
 import { SENSITIVE_CATEGORIES, SENSITIVE_CATEGORY_AGE } from "./brand-categories";
+import { storedOrderDetails } from "./campaign-order-details";
+import { deliverablesFromDetails, detailsForJob, exclusivityWords, usageWords } from "./order-details-rules";
 
 export const OFFER_DRAFT_DEFAULTS = {
   usageRights: "Organic posts on the sponsor's own social channels during the campaign and for 90 days after it ends.",
@@ -157,7 +159,7 @@ export async function draftOfferIn(
   const campaign = await db.campaign.findFirst({
     where: { ...whereFor(actor, "campaign", "write"), id: campaignId },
     select: {
-      id: true, name: true, startDate: true, endDate: true,
+      id: true, name: true, startDate: true, endDate: true, orderDetails: true,
       sponsor: { select: { name: true, categories: true } },
       brief: {
         select: {
@@ -191,7 +193,15 @@ export async function draftOfferIn(
   if (athlete.state !== "ACTIVE") throw new AthleteNotActiveError(athlete.state);
   const categories = [...new Set([...(campaign.brief?.categories ?? []), ...campaign.sponsor.categories])];
   const expiresAt = opts.expiresAt ?? endOfDay(new Date(now.getTime() + OFFER_DRAFT_DEFAULTS.expiresInDays * DAY_MS));
-  const deliverables = draftDeliverables(job, campaign.endDate, expiresAt);
+  /* POL-BE-116 — the campaign's order details, for this job, decide every term they cover. */
+  const campaignDetails = storedOrderDetails(campaign.orderDetails);
+  const details = campaignDetails ? detailsForJob(campaignDetails, job.id) : null;
+  const jobDetails = details?.jobs.find((j) => j.jobId === job.id);
+  const lastDay = details ? new Date(`${details.publishWindow.end}T00:00:00.000Z`) : campaign.endDate;
+  const templated = draftDeliverables(job, lastDay, expiresAt);
+  const deliverables = details
+    ? { items: deliverablesFromDetails(templated.items, jobDetails), why: `${templated.why}; what each asks for is the campaign's order details${jobDetails ? "" : " (this job isn't in them, so its template)"}` }
+    : templated;
   const lastDue = deliverables.items.reduce((d, i) => (i.dueDate > d ? i.dueDate : d), campaign.endDate);
   const conflicts = await restrictionConflicts(db, {
     tenantId: actor.tenantId, athleteId: athlete.id, categories,
@@ -219,23 +229,28 @@ export async function draftOfferIn(
 
   /* Disclosures: #ad, and what the categories add. */
   const extra = [...new Set(categories.flatMap((c) => (CATEGORY_DISCLOSURES[c] ? [CATEGORY_DISCLOSURES[c]] : [])))];
-  const disclosures = [OFFER_DRAFT_DEFAULTS.disclosure, ...extra];
-  const disclosuresWhy = extra.length
+  const disclosures = [...new Set([...(details?.disclosures ?? [OFFER_DRAFT_DEFAULTS.disclosure]), ...extra])];
+  const disclosuresWhy = details
+    ? `The campaign's order details${extra.length ? `, and ${extra.join(", ")} for its categories` : ""}`
+    : extra.length
     ? `"#ad" on every paid post, and ${extra.join(", ")} for the ${categories.filter((c) => CATEGORY_DISCLOSURES[c]).map((c) => c.toLowerCase().replace(/_/g, " ")).join(" and ")} category`
     : `"#ad" on every paid post — nothing more for this campaign's categories`;
 
   /* Usage and exclusivity: the package's terms where it has them. */
   const pkg = campaign.brief?.package ?? null;
   const weeks = pkg?.durationWeeks ?? null;
-  const usageRights = weeks
+  const usageRights = details ? usageWords(details) : weeks
     ? `Organic posts on the sponsor's own social channels for the package's ${weeks} weeks and for 90 days after.`
     : OFFER_DRAFT_DEFAULTS.usageRights;
-  const usageWhy = weeks
+  const usageWhy = details ? "The campaign's order details" : weeks
     ? `BTG's standard usage terms over the ${pkg!.name} package's ${weeks}-week term`
     : pkg ? `BTG's standard usage terms — the ${pkg.name} package sets no term` : "BTG's standard usage terms — the campaign has no package";
   let exclusivityDays: number | null = null;
   let exclusivityWhy: string;
-  if (!pkg) exclusivityWhy = "No package, so no exclusivity";
+  if (details) {
+    exclusivityDays = details.exclusivity.included ? details.exclusivity.days : null;
+    exclusivityWhy = details.exclusivity.included ? `The campaign's order details: ${exclusivityWords(details)}` : "The campaign's order details: no exclusivity";
+  } else if (!pkg) exclusivityWhy = "No package, so no exclusivity";
   else if (!pkg.exclusivity) exclusivityWhy = `The ${pkg.name} package is not exclusive`;
   else if (!campaign.sponsor.categories.length) {
     exclusivityWhy = `The ${pkg.name} package is exclusive, but ${campaign.sponsor.name} has no brand categories yet — BTG sets them before exclusivity can be offered`;
@@ -247,8 +262,8 @@ export async function draftOfferIn(
       : `The ${pkg.name} package is exclusive — for the campaign's ${days} days`;
   }
 
-  const brief = campaign.brief?.objective.trim() || campaign.name;
-  const briefWhy = campaign.brief?.objective.trim() ? "From the sponsor's brief" : "The campaign has no brief, so its name";
+  const brief = details?.prompt || campaign.brief?.objective.trim() || campaign.name;
+  const briefWhy = details ? "The prompt in the campaign's order details" : campaign.brief?.objective.trim() ? "From the sponsor's brief" : "The campaign has no brief, so its name";
 
   return {
     campaignId: campaign.id,
@@ -268,6 +283,8 @@ export async function draftOfferIn(
       exclusivityDays,
       disclosures,
       expiresAt: expiresAt.toISOString(),
+      /* POL-BE-116 — fixed and hashed with the offer when it is sent. */
+      orderDetails: details,
     },
     sources: {
       brief: briefWhy,
@@ -277,6 +294,7 @@ export async function draftOfferIn(
       usageRights: usageWhy,
       exclusivityDays: exclusivityWhy,
       disclosures: disclosuresWhy,
+      orderDetails: details ? "The campaign's order details, for this job" : "The campaign has no order details yet",
       expiresAt: opts.expiresWhy ?? `Offers expire ${OFFER_DRAFT_DEFAULTS.expiresInDays} days after they are drafted, as invitations do`,
     },
   };

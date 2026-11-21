@@ -12,7 +12,8 @@ import { Dropdown } from "@/components/filter-kit";
 import { ListSearch, PagerRow, PendingList, useListNav } from "@/components/server-pager";
 import { ShopDateFilter } from "@/components/shop-date-filter";
 import type { PageInfo } from "@/lib/list-query";
-import { CATEGORY_OPTIONS, MIN_PRICE_BANDS, PRICE_BANDS, STATE_OPTIONS, isoDay, usd, validateLine, defaultWindow, type ShopFilters } from "@/lib/shop-live";
+import { PlacePicker } from "@/components/place-picker";
+import { CATEGORY_OPTIONS, MIN_PRICE_BANDS, PRICE_BANDS, isoDay, usd, validateLine, defaultWindow, type ShopFilters } from "@/lib/shop-live";
 import { KIND_RAIL, MORE_FILTER_KEYS, type FilterChipDef, type ShopItem } from "@/lib/shop-window";
 
 /* --------------------------------------------------------------------------
@@ -712,8 +713,18 @@ function FiltersSheet({ filters, total, close, closing, clearAll, count }: { fil
           <ListSearch initial={filters.sport} label="Sport" placeholder="e.g. Basketball" tone="sponsor" param="sport" />
         </div>
         <div className="sx-sh-field">
-          <span className="sx-sh-field-label">State</span>
-          <Dropdown label="State" allLabel="Any state" value={filters.stateCode} options={STATE_OPTIONS} onChange={(v) => set({ stateCode: v || null })} tone="sponsor" block />
+          {/* POL-FE-117 — Country → State or region → City, the same searchable pickers as every profile. */}
+          <span className="sx-sh-field-label">Where</span>
+          <div className="sx-sh-field-pair sx-sh-field-place">
+            <PlacePicker
+              filter
+              idPrefix="shop-place"
+              tone="sponsor"
+              value={{ countryCode: filters.countryCode, regionCode: filters.stateCode, city: filters.city }}
+              onChange={(p) => set({ countryCode: p.countryCode || null, stateCode: p.regionCode || null, city: p.city || null })}
+              hints={{ city: "" }}
+            />
+          </div>
         </div>
         <div className="sx-sh-field">
           <span className="sx-sh-field-label">Price</span>

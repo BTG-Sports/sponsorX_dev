@@ -40,7 +40,7 @@
  */
 import { createHash } from "node:crypto";
 
-import type { Prisma } from "../generated/prisma/client";
+import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
 import type { Actor } from "../auth/actor";
@@ -65,6 +65,10 @@ import { advanceCampaign, lockCampaignForStaffing } from "./campaign-stages";
 import { replaceAfterDecline } from "./auto-staffing";
 import { factOrderBooked } from "./fact-writers";
 import { readPage, type PageRequest } from "../lib/paging";
+import { nextOrderNumberIn, requireOrderDetails, storedOrderDetails } from "./campaign-order-details";
+import { detailsForJob, exclusivityWords, type OrderDetails } from "./order-details-rules";
+import { presentStatement, requireFeeStatement } from "./fee-statement";
+import { athleteStatement, type FeeStatementRecord } from "./fee-statement-rules";
 
 export type OfferState = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 export type OfferDeliverable = { title: string; dueDate: Date };
@@ -79,6 +83,8 @@ export type OfferTerms = {
   disclosures: string[];
   expiresAt: Date;
   inventoryItemId?: string | null;
+  /** POL-BE-116 — the order details for this job (order-details-rules.ts); fixed and hashed when sent. */
+  orderDetails?: OrderDetails | null;
 };
 
 /** The longest change request an athlete can send — and BTG's reply to one. */
@@ -103,7 +109,7 @@ const SELECT = {
   id: true, campaignId: true, athleteId: true, jobId: true, inventoryItemId: true, brief: true, compensation: true,
   sellPrice: true, deliverables: true, usageRights: true, exclusivityDays: true, disclosures: true, expiresAt: true,
   state: true, sentAt: true, respondedAt: true, termsHash: true, termsSnapshot: true, orderId: true, createdAt: true,
-  createdBy: true, fromOfferId: true,
+  createdBy: true, fromOfferId: true, orderDetails: true,
   campaign: { select: { name: true, sponsor: { select: { name: true } } } },
   /* 2S2-FE-03 (BTG's Offers desk) — whose offer it is, and whether their
      guardian answers it (offerParty); the job's name. */
@@ -161,7 +167,7 @@ async function assertCleared(
 export function canonicalTerms(o: {
   campaignId: string; athleteId: string; jobId: string; inventoryItemId: string | null; brief: string; compensation: number;
   deliverables: Array<{ title: string; dueDate: Date | string }>; usageRights: string; exclusivityDays: number | null;
-  disclosures: string[]; expiresAt: Date | string;
+  disclosures: string[]; expiresAt: Date | string; orderDetails?: unknown;
 }) {
   return {
     campaignId: o.campaignId, athleteId: o.athleteId, jobId: o.jobId, inventoryItemId: o.inventoryItemId,
@@ -169,6 +175,8 @@ export function canonicalTerms(o: {
     deliverables: o.deliverables.map((d) => ({ title: d.title, dueDate: new Date(d.dueDate).toISOString() })),
     usageRights: o.usageRights, exclusivityDays: o.exclusivityDays, disclosures: [...o.disclosures],
     expiresAt: new Date(o.expiresAt).toISOString(),
+    /* POL-BE-116 — in the hash only when present, so an offer sent before order details existed hashes as it did. */
+    ...(o.orderDetails !== null && o.orderDetails !== undefined ? { orderDetails: o.orderDetails } : {}),
   };
 }
 
@@ -321,7 +329,11 @@ export async function getOffer(actor: Actor, id: string) {
     const body = a ? await loadAgreementBody(a) : null;
     if (a && body !== null) agreement = { id: a.id, version: a.version, bodyHash: a.bodyHash, body };
   }
-  return { ...view(actor, row), agreement };
+  /* POL-BE-119 — the fee statement accepting it accepts (SENT), or accepted (ACCEPTED). */
+  const kept = (row.termsSnapshot as { feeStatement?: FeeStatementRecord } | null)?.feeStatement;
+  const fees = kept?.statement ? { feeStatement: kept.statement, feeStatementHash: kept.hash }
+    : row.state === "SENT" ? presentStatement(athleteStatement(row.compensation)) : { feeStatement: null, feeStatementHash: null };
+  return { ...view(actor, row), agreement, ...fees };
 }
 
 export type DraftInput = OfferTerms &{ campaignId: string; athleteId: string; jobId: string };
@@ -339,6 +351,7 @@ export type DraftInput = OfferTerms &{ campaignId: string; athleteId: string; jo
  */
 async function assertDraftTerms(tx: Prisma.TransactionClient, actor: Actor, input: DraftInput) {
   assertTerms(input);
+  if (input.orderDetails) requireOrderDetails(input.orderDetails);
   const campaign = await tx.campaign.findFirst({
     where: { ...whereFor(actor, "campaign", "write"), id: input.campaignId },
     select: { id: true, budget: true, ...CAMPAIGN_TERMS },
@@ -384,7 +397,15 @@ function termsData(input: OfferTerms & { jobId: string }) {
     deliverables: input.deliverables.map((d) => ({ title: d.title.trim(), dueDate: d.dueDate.toISOString() })) as Prisma.InputJsonValue,
     usageRights: input.usageRights.trim(), exclusivityDays: input.exclusivityDays ?? null,
     disclosures: input.disclosures.map((d) => d.trim()).filter(Boolean), expiresAt: input.expiresAt,
+    ...(input.orderDetails !== undefined ? { orderDetails: input.orderDetails === null ? Prisma.DbNull : (input.orderDetails as Prisma.InputJsonValue) } : {}),
   };
+}
+
+/** POL-BE-116 — the campaign's order details, narrowed to one job; null when it has none. */
+async function campaignDetailsForJob(tx: Prisma.TransactionClient, actor: Actor, campaignId: string, jobId: string): Promise<OrderDetails | null> {
+  const c = await tx.campaign.findFirst({ where: { ...whereFor(actor, "campaign", "write"), id: campaignId }, select: { orderDetails: true } });
+  const d = storedOrderDetails(c?.orderDetails);
+  return d ? detailsForJob(d, jobId) : null;
 }
 
 /** A row's terms, read back into the shape the checks take. */
@@ -393,6 +414,7 @@ function termsOf(row: Row): OfferTerms & { jobId: string } {
     jobId: row.jobId, inventoryItemId: row.inventoryItemId, brief: row.brief, compensation: row.compensation, sellPrice: row.sellPrice,
     deliverables: (row.deliverables as unknown as Array<{ title: string; dueDate: string }>).map((d) => ({ title: d.title, dueDate: new Date(d.dueDate) })),
     usageRights: row.usageRights, exclusivityDays: row.exclusivityDays, disclosures: row.disclosures, expiresAt: row.expiresAt,
+    orderDetails: storedOrderDetails(row.orderDetails),
   };
 }
 
@@ -416,6 +438,8 @@ export async function createOfferIn(tx: Prisma.TransactionClient, actor: Actor, 
 /** createOffer's body (see createOfferIn). */
 async function draftIn(tx: Prisma.TransactionClient, actor: Actor, input: DraftInput, by: AuditActor) {
   assertTenantWide(actor, "offer", "write");
+  /* POL-BE-116 — an offer drafted without its details takes the campaign's for its job. */
+  if (input.orderDetails === undefined) input = { ...input, orderDetails: await campaignDetailsForJob(tx, actor, input.campaignId, input.jobId) };
   const ids = await assertDraftTerms(tx, actor, input);
   const row = await tx.offer.create({
     data: { tenantId: actor.tenantId, ...ids, ...termsData(input), createdBy: by.userId },
@@ -675,7 +699,7 @@ async function tellAthlete(
 export async function respondToOffer(
   actor: Actor,
   id: string,
-  response: { decision: "ACCEPT" | "DECLINE" | "REQUEST_CHANGE"; termsHashShown?: string; note?: string } & Partial<AcceptanceRequest>,
+  response: { decision: "ACCEPT" | "DECLINE" | "REQUEST_CHANGE"; termsHashShown?: string; note?: string; feeStatementHash?: string | null } & Partial<AcceptanceRequest>,
 ) {
   const scope = assertAllowed(actor, "offer", "write");
   if (scope !== "own") throw new ForbiddenError("offer", "write"); // it is the athlete's to answer
@@ -715,6 +739,8 @@ export async function respondToOffer(
     if (!response.agreementId || !response.bodyHashShown || !response.ip || !response.userAgent) {
       throw new OfferError("Acceptance needs the agreement shown and the signer's evidence.");
     }
+    /* POL-BE-119 — and the fee statement shown: no fee deducted, the sponsor pays it, no processing. */
+    const fee = requireFeeStatement(athleteStatement(row.compensation), response.feeStatementHash);
     /* Re-asked at the moment of commitment: a restriction or a sale since the
        offer was sent stops it here. */
     const campaign = await tx.campaign.findFirstOrThrow({
@@ -731,6 +757,7 @@ export async function respondToOffer(
 
     const lines = (row.deliverables as unknown as Array<{ title: string; dueDate: string }>).map((d) => ({ title: d.title, dueDate: new Date(d.dueDate) }));
     const dueDate = new Date(Math.max(...lines.map((d) => d.dueDate.getTime())));
+    const details = storedOrderDetails(row.orderDetails);
     let order: { id: string };
     try {
       order = await tx.campaignOrder.create({
@@ -738,8 +765,12 @@ export async function respondToOffer(
           tenantId: actor.tenantId, campaignId: row.campaignId, athleteId: row.athleteId, jobId: row.jobId,
           /* Copied from the offer — never from the rate card or the item. */
           compensation: row.compensation, sellPrice: row.sellPrice, usageRights: row.usageRights,
-          exclusivity: row.exclusivityDays != null ? `${row.exclusivityDays} days` : null, dueDate,
+          exclusivity: (details ? exclusivityWords(details) : null) ?? (row.exclusivityDays != null ? `${row.exclusivityDays} days` : null), dueDate,
           state: "ACCEPTED", acceptedAt: now, acceptanceId: acceptance.acceptanceId,
+          /* POL-BE-116 — numbered, and the details exactly as accepted. */
+          orderNumber: await nextOrderNumberIn(tx, actor.tenantId, row.campaignId, now),
+          ...(details ? { orderDetails: details as Prisma.InputJsonValue } : {}),
+          feeStatement: fee as unknown as Prisma.InputJsonValue,
         },
         select: { id: true },
       });
@@ -769,6 +800,7 @@ export async function respondToOffer(
     const snapshot = {
       terms: canonicalTerms({ ...row, deliverables: lines }), termsHash: row.termsHash,
       line: { sellPrice: row.sellPrice }, acceptedAt: now.toISOString(), acceptanceId: acceptance.acceptanceId, orderId: order.id,
+      feeStatement: fee,
     };
     const updated = await tx.offer.update({
       /* tenant-scope: the row loaded above through whereFor(offer, write). */

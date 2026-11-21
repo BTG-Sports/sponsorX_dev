@@ -37,8 +37,14 @@ export const ProfileChangeInput = z
     identity: z
       .object({
         displayName: text(120, "Display name").optional(),
+        /* POL-BE-117 — the place is picked from the catalogue (domain/places.ts):
+           a catalogue country, its region, a city of that region. The domain
+           checks the list; the shape here only bounds it. */
         city: optionalText(80).optional(),
-        stateCode: z.string().length(2).refine(hasVisibleText, { message: "State can't be blank." }).optional(),
+        stateCode: z.string().regex(/^[A-Za-z0-9]{1,3}$/, "A state or region code from the list.").optional()
+          .describe("The region's code within the country — a US state (TX), or e.g. 02 for Dar es Salaam, Tanzania"),
+        countryCode: z.string().regex(/^[A-Za-z]{2}$/, "A two-letter country code, e.g. US.").optional()
+          .describe("ISO country code; moving country changes the age of majority, so it is checked like a move"),
         /* 2S1-BE-14 — sensitive: needs `idDocument`; applied when the file arrives. */
         legalName: text(160, "Legal name").optional(),
         /* 2S1-BE-14 — sensitive: adulthood is worked out again. */

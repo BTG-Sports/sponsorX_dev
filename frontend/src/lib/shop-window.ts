@@ -13,7 +13,7 @@
    -------------------------------------------------------------------------- */
 
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
-import { US_STATES } from "@/lib/onboarding-live";
+import { placeCountry, placeRegion, placeWords } from "@/lib/places";
 import {
   INVENTORY_KINDS,
   MIN_PRICE_BANDS,
@@ -23,6 +23,7 @@ import {
   isoDay,
   kindLabel,
   propertyLine,
+  shopPlace,
   usd,
   type ApiSearchResult,
   type ItemWindow,
@@ -186,9 +187,13 @@ export function filterChips(f: ShopFilters): FilterChipDef[] {
   const out: FilterChipDef[] = [];
   if ((BRAND_CATEGORIES as readonly string[]).includes(f.category)) out.push({ key: "category", label: `For ${categoryLabel(f.category as BrandCategory).toLowerCase()} brands`, clear: { category: null } });
   if (f.sport) out.push({ key: "sport", label: `Sport: ${f.sport}`, clear: { sport: null } });
-  if (f.stateCode) {
-    const s = US_STATES.find((x) => x.code === f.stateCode.toUpperCase());
-    out.push({ key: "stateCode", label: `In ${s?.name ?? f.stateCode}`, clear: { stateCode: null } });
+  /* POL-FE-117 — one chip for where: "In Takoma Park, MD", "In Maryland", "In Arusha, Tanzania", "In Kenya". */
+  const { place: p } = shopPlace(f);
+  if (p.countryCode) {
+    const country = placeCountry(p.countryCode);
+    const region = placeRegion(p.countryCode, p.regionCode);
+    const words = p.city ? placeWords({ countryCode: p.countryCode, stateCode: p.regionCode, city: p.city }) : region ? (p.countryCode === "US" ? region.name : `${region.name}, ${country?.name}`) : (country?.name ?? p.countryCode);
+    out.push({ key: "place", label: `In ${words}`, clear: { countryCode: null, stateCode: null, city: null } });
   }
   const from = f.minPrice ? bandLabel(MIN_PRICE_BANDS, f.minPrice) : null;
   const upTo = f.maxPrice ? bandLabel(PRICE_BANDS, f.maxPrice) : null;
@@ -206,4 +211,4 @@ export function filterChips(f: ShopFilters): FilterChipDef[] {
 }
 
 /** Every "More filters" key, for "Clear all". */
-export const MORE_FILTER_KEYS = ["category", "sport", "stateCode", "minPrice", "maxPrice", "availableFrom", "availableUntil"] as const;
+export const MORE_FILTER_KEYS = ["category", "sport", "countryCode", "stateCode", "city", "minPrice", "maxPrice", "availableFrom", "availableUntil"] as const;

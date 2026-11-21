@@ -22,7 +22,6 @@ import {
   DEMO_CART,
   MIN_PRICE_BANDS,
   PRICE_BANDS,
-  STATE_OPTIONS,
   shownFilters,
 } from "../src/lib/shop-live";
 
@@ -50,6 +49,7 @@ describe("shopSearchExtras", () => {
       kind: "SOCIAL_POST",
       category: "RESTAURANT",
       sport: "Basketball",
+      countryCode: "US",
       stateCode: "MD",
       maxPrice: "100000",
       availableFrom: "2026-10-01T00:00:00.000Z",
@@ -68,7 +68,7 @@ describe("shopSearchExtras", () => {
       q: ["a", "b"],
     });
     expect(extras).toEqual({});
-    expect(ignored).toEqual(["type", "category", "state", "price", "available from"]);
+    expect(ignored).toEqual(["type", "category", "place", "price", "available from"]);
   });
 
   it("knows when any filter is set", () => {
@@ -120,11 +120,16 @@ describe("price bands and states", () => {
     expect(shownFilters(shopFilters({ maxPrice: "500", minPrice: "100" }))).toMatchObject({ maxPrice: "", minPrice: "" });
   });
 
-  it("accepts only US state codes, upper-cased", () => {
-    expect(shopSearchExtras({ stateCode: "dc" }).extras).toEqual({ stateCode: "DC" });
-    expect(shopSearchExtras({ stateCode: "ZZ" }).ignored).toEqual(["state"]);
-    expect(shownFilters(shopFilters({ stateCode: "md" })).stateCode).toBe("MD");
-    expect(STATE_OPTIONS.find((o) => o.value === "MD")?.label).toBe("Maryland (MD)");
+  it("POL-FE-117: where is a catalogue country, its region and a city — an old ?stateCode is a US state", () => {
+    expect(shopSearchExtras({ stateCode: "dc" }).extras).toEqual({ countryCode: "US", stateCode: "DC" });
+    expect(shopSearchExtras({ stateCode: "ZZ" }).ignored).toEqual(["place"]);
+    expect(shownFilters(shopFilters({ stateCode: "md" }))).toMatchObject({ countryCode: "US", stateCode: "MD", city: "" });
+    expect(shopSearchExtras({ countryCode: "tz" }).extras).toEqual({ countryCode: "TZ" });
+    expect(shopSearchExtras({ countryCode: "KE", stateCode: "MD" })).toMatchObject({ extras: { countryCode: "KE" }, ignored: ["place"] });
+    expect(shopSearchExtras({ countryCode: "US", stateCode: "MD", city: " Takoma Park " }).extras).toEqual({ countryCode: "US", stateCode: "MD", city: "Takoma Park" });
+    /* A city needs its region; a country off the catalogue narrows nothing. */
+    expect(shopSearchExtras({ countryCode: "US", city: "Laurel" })).toMatchObject({ extras: { countryCode: "US" }, ignored: ["place"] });
+    expect(shopSearchExtras({ countryCode: "FR" })).toMatchObject({ extras: {}, ignored: ["place"] });
     expect(MIN_PRICE_BANDS.map((b) => b.value)).toEqual(PRICE_BANDS.map((b) => b.value));
   });
 });

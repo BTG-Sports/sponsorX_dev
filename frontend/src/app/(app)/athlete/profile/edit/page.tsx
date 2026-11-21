@@ -7,6 +7,7 @@ import { BlockedNotice } from "@/components/ui";
 import { EmptyState } from "@/components/states";
 import { LiveProfileEditor } from "@/components/live-profile-editor";
 import { sectionStates, type ApiMyProfile } from "@/lib/profile-live";
+import { placeWords } from "@/lib/places";
 import { isMinorNow, type ApiProfileChange } from "@/lib/profile-changes-live";
 import type { SectionKey } from "@/lib/profile-sections";
 import { apiFetch, fetchActor } from "@/server/api";
@@ -68,7 +69,7 @@ function summaryOf(p: ApiMyProfile): Record<SectionKey, { label: string; value: 
     identity: [
       { label: "Display name", value: p.displayName },
       { label: "Legal name", value: p.legalName },
-      { label: "Region", value: [p.city, p.stateCode].filter(Boolean).join(", ") },
+      { label: "Region", value: placeWords(p) },
     ],
     sport: [
       { label: "Sport", value: p.sport },
@@ -153,7 +154,7 @@ export default async function ProfileEditPage({
           summary={summaryOf(me)}
           socials={me.socials}
           profile={{
-            legalName: me.legalName, displayName: me.displayName, city: me.city, stateCode: me.stateCode,
+            legalName: me.legalName, displayName: me.displayName, city: me.city, stateCode: me.stateCode, countryCode: me.countryCode ?? "US",
             sport: me.sport, position: me.position, school: me.school, level: me.level, gradYear: me.gradYear, achievements: me.achievements,
             contentCapabilities: me.contentCapabilities, brandInterests: me.brandInterests,
             restrictedCategories: me.restrictedCategories, restrictionNotes: me.restrictionNotes,

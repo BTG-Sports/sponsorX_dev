@@ -1,5 +1,6 @@
-import { agreementHref, type ChatRow, type DealViewer } from "@/lib/deal-chat";
+import { type ChatRow, type DealViewer } from "@/lib/deal-chat";
 
+import { AgreementDownload } from "./agreement-download";
 import { ChatAvatar, Glyph, StagePill } from "./chat-bits";
 import { OpenChatButton } from "./chat-dock";
 import { OrderLive } from "./order-live";
@@ -17,9 +18,11 @@ import "./deal-chat.css";
    -------------------------------------------------------------------------- */
 
 export function OrderDealChats({ rows, portal }: { rows: ChatRow[]; portal: DealViewer["portal"] }) {
+  /* The chats this card follows live: the ones still going (an ended chat has nothing live), never a sample. */
+  const followed = rows.filter((r) => !r.ended && !r.id.startsWith("sample-")).map((r) => r.id);
   return (
     <section className="sx-dc sx-dc-ordercard sx-stadium-in" aria-label="Deal chat">
-      {rows.some((r) => !r.id.startsWith("sample-")) && <OrderLive orderId={rows[0]!.orderId} />}
+      {followed.length > 0 && <OrderLive orderId={rows[0]!.orderId} chatIds={followed} />}
       <h2><Glyph name="chat" size={18} />{rows.length > 1 ? "Deal chats" : "Deal chat"}</h2>
       {rows.map((r) => (
         <div key={r.id} className="sx-dc-orderrow">
@@ -37,9 +40,9 @@ export function OrderDealChats({ rows, portal }: { rows: ChatRow[]; portal: Deal
               <Glyph name="chat" size={15} />Open chat
             </OpenChatButton>
             {r.agreementId && (
-              <a className="sx-dc-btn" href={agreementHref(r.agreementId)}>
+              <AgreementDownload id={r.agreementId} className="sx-dc-btn">
                 <Glyph name="download" size={15} />Agreement
-              </a>
+              </AgreementDownload>
             )}
           </div>
         </div>

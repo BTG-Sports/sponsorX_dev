@@ -6,6 +6,7 @@ import { apiFetch } from "@/server/api";
 import { editionBody, editionFormProblem, type EditionForm } from "@/lib/next-setup-live";
 import { contentReadyNote, type ApiEditionState, type ApiSlotKind } from "@/lib/editions-live";
 import { CONSENT_GRANTORS, type AssetKind, type GrantorKind, type SourceKind } from "@/lib/rights-live";
+import type { EditionFileKind } from "@/lib/edition-files-live";
 
 /* --------------------------------------------------------------------------
    P9-FE-03 / -04 — the NEXT inventory writes, as server actions.
@@ -89,25 +90,147 @@ export async function setContentReadyAction(editionId: string, contentReady: boo
   }
 }
 
-const ASSET_KINDS: AssetKind[] = ["ARTICLE", "PHOTO", "PHOTO_PACKAGE", "INTERVIEW", "VIDEO", "AD_CREATIVE"];
+const ASSET_KINDS: AssetKind[] = ["ARTICLE", "PHOTO", "PHOTO_PACKAGE", "INTERVIEW", "VIDEO", "AD_CREATIVE", "DESIGN"];
 const SOURCE_KINDS: SourceKind[] = ["STUDENT", "ATHLETE", "BTG", "THIRD_PARTY"];
 
+/** P9-FE-13 — with `r2Key`, the piece's file: uploaded first on a grant from
+ *  presignContentUploadAction, then checked by the API as the piece is saved
+ *  (it arrived, and it is the type and size that were signed for). */
 export async function addAssetAction(
   editionId: string,
-  input: { kind: AssetKind; title: string; sourceKind: SourceKind },
+  input: { kind: AssetKind; title: string; sourceKind: SourceKind; r2Key?: string | null; fileName?: string | null },
 ): Promise<EditionActionResult> {
   const title = typeof input?.title === "string" ? input.title.trim() : "";
-  if (!editionId || !title) return { ok: false, message: "Name the asset." };
+  if (!editionId || !title) return { ok: false, message: "Give the piece a title." };
   if (!ASSET_KINDS.includes(input.kind) || !SOURCE_KINDS.includes(input.sourceKind)) return { ok: false, message: "Pick a kind and a source." };
+  const r2Key = typeof input.r2Key === "string" && input.r2Key ? input.r2Key : null;
   try {
     const res = await apiFetch(`/editions/${encodeURIComponent(editionId)}/assets`, {
       method: "POST",
-      body: JSON.stringify({ kind: input.kind, title, sourceKind: input.sourceKind }),
+      body: JSON.stringify({
+        kind: input.kind, title, sourceKind: input.sourceKind,
+        ...(r2Key ? { r2Key, fileName: fileNameOf(input.fileName) } : {}),
+      }),
     });
-    if (!res.ok) return { ok: false, message: await reason(res, `The asset was not added (HTTP ${res.status}).`) };
+    if (!res.ok) return { ok: false, message: await reason(res, `The piece was not added (HTTP ${res.status}).`) };
     revalidatePath("/admin/next/rights");
+    revalidatePath("/admin/next/production");
     refresh();
-    return { ok: true, message: `“${title}” added — it needs a right before the edition can clear.` };
+    return { ok: true, message: `“${title}” added${r2Key ? " with its file" : ""} — it needs a right before the edition can clear.` };
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+}
+
+/* ── P9-FE-13 / -15 — files, straight to storage (P9-BE-25, -27) ─────────
+   Each upload is three calls: a grant (the API answers the address and the
+   Content-Type to send), the browser's own PUT to storage, then the save,
+   where the API checks what arrived. These are the grant and the save; the
+   bytes never pass through this server (lib/direct-upload.ts). */
+
+export type UploadGrantResult = { ok: true; url: string; key: string; contentType: string } | { ok: false; message: string };
+
+/** The name a file was chosen with, as the API takes it (≤ 255). */
+function fileNameOf(name: unknown): string | null {
+  return typeof name === "string" && name.trim() ? name.trim().slice(-255) : null;
+}
+
+async function grant(path: string, contentType: unknown, bytes: unknown, fallback: string): Promise<UploadGrantResult> {
+  if (typeof bytes !== "number" || !Number.isInteger(bytes) || bytes <= 0) return { ok: false, message: "That file is empty — choose another." };
+  try {
+    const res = await apiFetch(path, {
+      method: "POST",
+      body: JSON.stringify({ contentType: typeof contentType === "string" ? contentType.slice(0, 255) : "", bytes }),
+    });
+    if (!res.ok) return { ok: false, message: await reason(res, `${fallback} (HTTP ${res.status}).`) };
+    const g = (await res.json()) as { url?: string; key?: string; contentType?: string };
+    if (!g.url || !g.key || !g.contentType) return { ok: false, message: `${fallback}. Try again.` };
+    return { ok: true, url: g.url, key: g.key, contentType: g.contentType };
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+}
+
+/** A grant to upload one file for this edition's content — any format, up to 2 GB. */
+export async function presignContentUploadAction(editionId: string, contentType: string, bytes: number): Promise<UploadGrantResult> {
+  if (typeof editionId !== "string" || !editionId) return { ok: false, message: "No edition." };
+  return grant(`/editions/${encodeURIComponent(editionId)}/assets/uploads`, contentType, bytes, "The upload couldn't be started");
+}
+
+/** A file for a piece that was added by title. The API refuses ad artwork, a
+ *  student's piece and a piece that already has its file, each with the reason. */
+export async function attachAssetFileAction(assetId: string, r2Key: string, fileName: string | null): Promise<EditionActionResult> {
+  if (typeof assetId !== "string" || !assetId || typeof r2Key !== "string" || !r2Key) return { ok: false, message: "Choose the file again." };
+  try {
+    const res = await apiFetch(`/edition-assets/${encodeURIComponent(assetId)}/file`, {
+      method: "PUT",
+      body: JSON.stringify({ r2Key, fileName: fileNameOf(fileName) }),
+    });
+    if (!res.ok) return { ok: false, message: await reason(res, `The file was not saved (HTTP ${res.status}).`) };
+    revalidatePath("/admin/next/rights");
+    revalidatePath("/admin/next/production");
+    return { ok: true, message: "File saved." };
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+}
+
+export type FileLinkResult = { ok: true; url: string; download: boolean } | { ok: false; message: string };
+
+/** A short signed link to a piece's file. `download`: the browser must not
+ *  open it in place (a design file, an HTML page), so it saves instead. */
+export async function assetFileAction(assetId: string): Promise<FileLinkResult> {
+  if (typeof assetId !== "string" || !assetId) return { ok: false, message: "No piece." };
+  try {
+    const res = await apiFetch(`/edition-assets/${encodeURIComponent(assetId)}/file`);
+    if (!res.ok) return { ok: false, message: await reason(res, `The file couldn't be opened (HTTP ${res.status}).`) };
+    const f = (await res.json()) as { url?: string; download?: boolean };
+    if (!f.url) return { ok: false, message: "The file couldn't be opened. Try again." };
+    return { ok: true, url: f.url, download: f.download === true };
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+}
+
+const EDITION_FILES: EditionFileKind[] = ["cover", "press-pdf"];
+
+/** P9-FE-15 — a grant to upload the edition's cover (JPG, PNG or WebP, up to
+ *  50 MB) or its press PDF (up to 2 GB). The API refuses anything else, in words. */
+export async function presignEditionFileAction(editionId: string, which: EditionFileKind, contentType: string, bytes: number): Promise<UploadGrantResult> {
+  if (typeof editionId !== "string" || !editionId || !EDITION_FILES.includes(which)) return { ok: false, message: "No edition." };
+  return grant(`/editions/${encodeURIComponent(editionId)}/${which}/uploads`, contentType, bytes, "The upload couldn't be started");
+}
+
+/** Record the uploaded cover or press PDF; a new one replaces the one before it. */
+export async function recordEditionFileAction(editionId: string, which: EditionFileKind, r2Key: string, fileName: string | null): Promise<EditionActionResult> {
+  if (typeof editionId !== "string" || !editionId || !EDITION_FILES.includes(which) || typeof r2Key !== "string" || !r2Key) {
+    return { ok: false, message: "Choose the file again." };
+  }
+  const what = which === "cover" ? "cover" : "press PDF";
+  try {
+    const res = await apiFetch(`/editions/${encodeURIComponent(editionId)}/${which}`, {
+      method: "PUT",
+      body: JSON.stringify({ r2Key, fileName: fileNameOf(fileName) }),
+    });
+    if (!res.ok) return { ok: false, message: await reason(res, `The ${what} was not saved (HTTP ${res.status}).`) };
+    const saved = (await res.json().catch(() => ({}))) as { replaced?: boolean };
+    refresh();
+    revalidatePath("/admin/next/production");
+    return { ok: true, message: saved.replaced ? `The ${what} was replaced.` : `The ${what} is saved.` };
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+}
+
+/** BTG's signed, recorded read of the press PDF — always a download, by its name. */
+export async function pressPdfAction(editionId: string): Promise<FileLinkResult> {
+  if (typeof editionId !== "string" || !editionId) return { ok: false, message: "No edition." };
+  try {
+    const res = await apiFetch(`/editions/${encodeURIComponent(editionId)}/press-pdf`);
+    if (!res.ok) return { ok: false, message: await reason(res, `The press PDF couldn't be opened (HTTP ${res.status}).`) };
+    const f = (await res.json()) as { url?: string };
+    if (!f.url) return { ok: false, message: "The press PDF couldn't be opened. Try again." };
+    return { ok: true, url: f.url, download: true };
   } catch {
     return { ok: false, message: unreachable };
   }

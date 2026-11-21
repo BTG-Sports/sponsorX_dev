@@ -76,6 +76,8 @@ export const ADMIN_NAV: NavItem[] = [
      inventory ledger, rights queue and splits screens join as they're built. */
   { href: "/admin/next/editions", label: "Editions", icon: "book", group: "NEXT", groupIcon: "book" },
   { href: "/admin/next/inventory", label: "Inventory", icon: "card", group: "NEXT" },
+  /* P9-FE-16 — one edition's pieces and what each still needs before it publishes. */
+  { href: "/admin/next/production", label: "Production", icon: "box", group: "NEXT" },
   /* P9-FE-11 — businesses students bring in; the system decides most, the rest wait here. */
   { href: "/admin/next/prospects", label: "Prospects", icon: "inbox", group: "NEXT" },
   { href: "/admin/next/rights", label: "Rights", icon: "camera", group: "NEXT" },

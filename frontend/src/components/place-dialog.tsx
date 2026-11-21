@@ -29,7 +29,7 @@ import { createPortal } from "react-dom";
 import { removeAgeRowAction, setAgeRowAction, type RuleResult } from "@/app/(app)/admin/new-signups/rules/actions";
 import { useDialogFocus } from "@/components/use-dialog-focus";
 import { useMounted } from "@/components/use-mounted";
-import { ageBand, countryName, countryOptions, filterOptions, placeLabel, placeName, regionOptions, type AgeRow, type Option } from "@/lib/age-table";
+import { ageBand, citiesIn, countryName, countryOptions, filterOptions, placeLabel, placeName, regionOptions, regionWord, type AgeRow, type Option } from "@/lib/age-table";
 
 const MIN = 14;
 const MAX = 25;
@@ -37,7 +37,8 @@ const CHAMFER = "[clip-path:polygon(0_0,calc(100%-14px)_0,100%_14px,100%_100%,14
 const AGE_TEXT = { young: "text-[#c3a6ff]", eighteen: "text-[#93c5fd]", nineteen: "text-[#9be0ff]", older: "text-[#fdba74]" } as const;
 const WHOLE = "";
 
-export type DialogMode = { kind: "add" } | { kind: "edit"; row: AgeRow };
+/** `add` may come with a place already chosen — a region card with no row of its own (POL-FE-117). */
+export type DialogMode = { kind: "add"; countryCode?: string; regionCode?: string; age?: number } | { kind: "edit"; row: AgeRow };
 
 export function PlaceDialog({
   mode, rows, onClose, onDone,
@@ -52,9 +53,10 @@ export function PlaceDialog({
   const ref = useDialogFocus<HTMLDivElement>(onClose);
   const editing = mode.kind === "edit" ? mode.row : null;
 
-  const [country, setCountry] = useState<string>(editing?.countryCode ?? "");
-  const [region, setRegion] = useState<string>(editing?.regionCode ?? WHOLE);
-  const [age, setAge] = useState<number>(editing?.age ?? 18);
+  const preset = mode.kind === "add" ? mode : null;
+  const [country, setCountry] = useState<string>(editing?.countryCode ?? preset?.countryCode ?? "");
+  const [region, setRegion] = useState<string>(editing?.regionCode ?? preset?.regionCode ?? WHOLE);
+  const [age, setAge] = useState<number>(editing?.age ?? preset?.age ?? 18);
   const [result, setResult] = useState<RuleResult | null>(null);
   const [busy, setBusy] = useState<"save" | "remove" | null>(null);
   const [armRemove, setArmRemove] = useState(false);
@@ -65,7 +67,8 @@ export function PlaceDialog({
   const countries = useMemo(() => countryOptions(), []);
   const regions = useMemo(() => (country ? regionOptions(country) : []), [country]);
   const inTable = useMemo(() => new Map(rows.map((r) => [`${r.countryCode}-${r.regionCode}`, r])), [rows]);
-  const label = country ? placeLabel({ countryCode: country, regionCode: region }) : "";
+  /* In words, not codes: "Add Dodoma", "Change Tanzania" (POL-FE-117 — some region codes are numbers). */
+  const label = country ? placeName({ countryCode: country, regionCode: region }).split(",")[0]! : "";
 
   const pickCountry = (code: string) => {
     setCountry(code);
@@ -144,10 +147,10 @@ export function PlaceDialog({
                 value={country}
                 onPick={pickCountry}
                 note={(o) => inTable.has(`${o.code}-`) ? `in table · ${inTable.get(`${o.code}-`)!.age}` : null}
-                autoFocus
+                autoFocus={!preset?.countryCode}
               />
               <ComboBox
-                label="State or province"
+                label={country ? regionWord(country) : "State or region"}
                 placeholder={country ? "Whole country" : "Choose a country first"}
                 options={[{ code: WHOLE, name: "Whole country" }, ...regions]}
                 value={region}
@@ -155,13 +158,11 @@ export function PlaceDialog({
                 disabled={!country}
                 note={(o) => inTable.has(`${country}-${o.code}`) ? `in table · ${inTable.get(`${country}-${o.code}`)!.age}` : null}
               />
-              {country && regions.length === 0 && (
-                <p className="sm:col-span-2 text-[11px] text-[#7e88a0]">
-                  SponsorX has no state list for {countryName(country)} — its age is set for the whole country.
-                </p>
-              )}
+              {country && <CitiesNote country={country} region={region} />}
             </div>
           )}
+
+          {editing && <div className="mt-3"><CitiesNote country={editing.countryCode} region={editing.regionCode} /></div>}
 
           {/* --------------------------------------------------------- age */}
           <div className="mt-6 flex flex-col items-center gap-2">
@@ -172,7 +173,7 @@ export function PlaceDialog({
               <span
                 role="spinbutton"
                 tabIndex={0}
-                data-autofocus={editing ? "" : undefined}
+                data-autofocus={editing || preset?.countryCode ? "" : undefined}
                 aria-labelledby="dialog-age-label"
                 aria-valuenow={age}
                 aria-valuemin={MIN}
@@ -200,7 +201,7 @@ export function PlaceDialog({
             {existing && (
               armRemove ? (
                 <span className="sx-pop flex items-center gap-2 text-[11px]">
-                  <span className="font-semibold text-[#fca5a5]">Remove {placeLabel(existing)}?</span>
+                  <span className="font-semibold text-[#fca5a5]">Remove {placeName(existing).split(",")[0]}?</span>
                   <button type="button" disabled={busy !== null} onClick={remove} className="rounded-md bg-[#ef4444] px-2.5 py-1 font-semibold text-white disabled:opacity-50">
                     {busy === "remove" ? "Removing…" : "Remove"}
                   </button>
@@ -208,7 +209,7 @@ export function PlaceDialog({
                 </span>
               ) : (
                 <button type="button" onClick={() => setArmRemove(true)} className="rounded-md border border-[#ef4444]/45 px-2.5 py-1.5 text-[11px] font-semibold text-[#fca5a5] transition-colors hover:bg-[#ef4444]/15">
-                  Remove {placeLabel(existing)}
+                  Remove {placeName(existing).split(",")[0]}
                 </button>
               )
             )}
@@ -228,6 +229,21 @@ export function PlaceDialog({
       </div>
     </div>,
     document.body,
+  );
+}
+
+/** POL-FE-117 — a city has no age of its own: say which of the catalogue's cities this age reaches. */
+function CitiesNote({ country, region }: { country: string; region: string }) {
+  const n = citiesIn(country, region);
+  if (n === null) return <p className="sm:col-span-2 text-[11px] text-[#7e88a0]">{placeName({ countryCode: country, regionCode: region })} isn&rsquo;t on the place list — this row only applies to people who signed up there before the list.</p>;
+  const word = regionWord(country).toLowerCase();
+  const cities = `${n.toLocaleString("en-US")} ${n === 1 ? "city" : "cities"}`;
+  return (
+    <p className="sm:col-span-2 text-[11px] text-[#7e88a0]">
+      {region
+        ? `Every city in ${placeName({ countryCode: country, regionCode: region }).split(",")[0]} follows this age — ${cities} on the place list. A city has no age of its own.`
+        : `The whole of ${countryName(country)} — every ${word} without an age of its own, ${cities} on the place list.`}
+    </p>
   );
 }
 

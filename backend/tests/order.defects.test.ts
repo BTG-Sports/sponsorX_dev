@@ -64,7 +64,12 @@ vi.mock("../src/db/client", () => ({
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
       const writes: string[] = [];
       const tx = {
-        campaign: { findFirst: () => Promise.resolve(campaign) },
+        campaign: {
+          findFirst: () => Promise.resolve(campaign),
+          /* POL-BE-116 — the order's number: the campaign's code, then the counter. */
+          findFirstOrThrow: () => Promise.resolve({ id: "cmp_1", name: "Fall tacos", orderCode: "FTA", orderCodeYear: 2026 }),
+        },
+        $queryRaw: () => Promise.resolve([{ last: 1 }]),
         /* P8-BE-03 / P8-BE-02 — no dispute pauses this order, and the rules confirmation is switched off. */
         dealDispute: { findFirst: () => Promise.resolve(null) },
         tenant: { findFirst: () => Promise.resolve({ requireRulesAttestation: false }) },

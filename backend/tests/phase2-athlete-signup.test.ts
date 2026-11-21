@@ -481,10 +481,15 @@ describe.skipIf(!hasDatabase)("2S1-BE-09 / -10 / -12 · athletes and guardians a
     expect(set.status, set.text).toBe(200);
     expect(set.json.athletesUpdated).toBeGreaterThan(0);
     expect((await athlete(riley.id)).majorityAge).toBe(21);
-    const add = await call("PUT", "/signup-rules/age-table", "as_admin", { countryCode: "ZZ", age: 20 });
-    expect(add.status, add.text).toBe(200);
+    /* POL-FE-117 — a new place is on the place list: not a made-up country, not a region the country doesn't have. */
+    const zz = await call("PUT", "/signup-rules/age-table", "as_admin", { countryCode: "ZZ", age: 20 });
+    expect(zz.status, zz.text).toBe(422);
+    expect(zz.text).toMatch(/isn't on the place list/);
+    expect((await call("PUT", "/signup-rules/age-table", "as_admin", { countryCode: "TZ", regionCode: "MD", age: 20 })).status).toBe(422);
     const zed = await prisma.athlete.findFirstOrThrow({ where: { tenantId: T, email: "zed@as-test.invalid" }, select: { majorityAge: true, majorityKnown: true } });
-    expect(zed).toEqual({ majorityAge: 20, majorityKnown: true });
+    expect(zed).toEqual({ majorityAge: 18, majorityKnown: false });
+    const add = await call("PUT", "/signup-rules/age-table", "as_admin", { countryCode: "TZ", regionCode: "01", age: 20 });
+    expect(add.status, add.text).toBe(200);
     const removed = await call("DELETE", `/signup-rules/age-table/${add.json.row.id}`, "as_admin");
     expect(removed.status, removed.text).toBe(200);
     expect(await prisma.auditLog.count({ where: { tenantId: T, action: { in: ["ageOfMajority.update", "ageOfMajority.add", "ageOfMajority.remove"] } } })).toBe(3);

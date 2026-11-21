@@ -6,6 +6,14 @@ import { CAMPAIGN_STATES } from "../domain/campaign-state";
 import { INVITE_STATES } from "../domain/invite-state";
 import { ORDER_STATES } from "../domain/order-state";
 import { AUDIENCE_TIERS, MATCH_CHANNELS } from "../domain/match-vocabulary";
+import { OrderDetailsSchema } from "../domain/order-details-rules";
+
+/** POL-BE-116 — every athlete order's details, as the Athlete Campaign Order template lays them out; the deliverable section by each job's medium. */
+export const OrderDetailsInput = OrderDetailsSchema.meta({
+  id: "OrderDetails",
+  description: "The Athlete Campaign Order template's details (POL-BE-116): prompt, publish window, each job with its medium's details, usage (channels, period, territory, restrictions), paid media, exclusivity (category, days, area), disclosures, sponsor approval, payment timing and non-cash consideration.",
+});
+const OrderCode = z.string().regex(/^[A-Z]{3}$/).describe("Three capital letters: orders are numbered SX-<code>-<year>-<n>.");
 
 /* --------------------------------------------------------------------------
    Briefs, campaigns and invitations on the wire — P4-BE-02…06, §21, §26.
@@ -31,6 +39,9 @@ export const CountryCode = z
   .string()
   .regex(/^[A-Za-z]{2}$/)
   .meta({ id: "CountryCode", description: "A country, ISO 3166-1 alpha-2 (e.g. US, CA, GB). Default US." });
+/** POL-BE-117 — a region of the brief's country: a US state (TX) or an East
+ *  African region code from the place catalogue (e.g. 02, C). The domain checks the list. */
+export const RegionCode = z.string().regex(/^[A-Za-z0-9]{1,3}$/).meta({ id: "RegionCode", description: "A region within the country — a US state code, or a catalogue region code." });
 export const CampaignState = z.enum(CAMPAIGN_STATES).meta({ id: "CampaignState" });
 export const InviteState = z.enum(INVITE_STATES).meta({ id: "InviteState" });
 
@@ -51,7 +62,7 @@ export const CampaignBriefInput = z
     sports: z.array(z.string().min(1).max(60)).max(20).default([]),
     /** POL-BE-107 — the country targeted; only athletes there are matched. */
     countryCode: CountryCode.default("US"),
-    stateCodes: z.array(z.string().length(2)).max(60).default([]).describe("US state codes; only with countryCode US (400 otherwise)."),
+    stateCodes: z.array(RegionCode).max(60).default([]).describe("Regions of the country: US state codes, or (POL-BE-117) an East African country's regions from the place catalogue; refused (400) for any other country."),
     /** Targeting AND the conflict input. An athlete restricting any of these
      *  is excluded from matching and refused at the invitation. */
     categories: z.array(BrandCategory).max(25).default([]),
@@ -60,6 +71,9 @@ export const CampaignBriefInput = z
     channels: z.array(z.enum(MATCH_CHANNELS)).max(MATCH_CHANNELS.length).default([]).describe("Where the sponsor wants to be seen; empty is no preference."),
     audienceTiers: z.array(z.enum(AUDIENCE_TIERS)).max(AUDIENCE_TIERS.length).default([]).describe("The athlete tiers wanted; empty is any."),
     audienceMinFollowers: z.int().min(0).max(INT4_MAX).nullable().optional().describe("The smallest audience wanted: followers on the athlete's largest account. Null: no minimum."),
+    /** POL-BE-116 — the builder's order details; null: BTG's standard terms. The publish window sits inside the dates. */
+    orderDetails: OrderDetailsInput.nullable().optional(),
+    orderCode: OrderCode.nullable().optional(),
   })
   .meta({ id: "CampaignBriefInput", description: "What a sponsor asks for, before BTG turns it into a campaign." });
 
@@ -74,12 +88,14 @@ export const CampaignBriefPatch = z
     endDate: z.iso.date().optional(),
     sports: z.array(z.string().min(1).max(60)).max(20).optional(),
     countryCode: CountryCode.optional(),
-    stateCodes: z.array(z.string().length(2)).max(60).optional().describe("US state codes; only when the brief's country is US (400 otherwise)."),
+    stateCodes: z.array(RegionCode).max(60).optional().describe("Regions of the brief's country: US state codes, or (POL-BE-117) an East African country's regions from the place catalogue; refused (400) for any other country."),
     categories: z.array(BrandCategory).max(25).optional(),
     excludedCategories: z.array(BrandCategory).max(25).optional(),
     channels: z.array(z.enum(MATCH_CHANNELS)).max(MATCH_CHANNELS.length).optional(),
     audienceTiers: z.array(z.enum(AUDIENCE_TIERS)).max(AUDIENCE_TIERS.length).optional(),
     audienceMinFollowers: z.int().min(0).max(INT4_MAX).nullable().optional(),
+    orderDetails: OrderDetailsInput.nullable().optional(),
+    orderCode: OrderCode.nullable().optional(),
   })
   .meta({
     id: "CampaignBriefPatch",
@@ -211,6 +227,8 @@ export const OrderAcceptanceInput = z
   .object({
     agreementId: z.string().min(1),
     bodyHashShown: z.string().min(1).describe("Hash of the contract text as rendered to the signer"),
+    feeStatementHash: z.string().regex(/^sha256:[0-9a-f]{64}$/).optional()
+      .describe("POL-BE-119 — the fee statement shown (GET /orders/{id} → feeStatementHash); a different one refuses, 409 fee_statement_changed"),
   })
   .meta({
     id: "OrderAcceptanceInput",
@@ -300,3 +318,17 @@ export const CampaignLaunchResult = z
     }),
   })
   .meta({ id: "CampaignLaunchResult" });
+
+/** POL-BE-116 — BTG sets a campaign's order details (and its code) until the first offer goes out. */
+export const CampaignOrderDetailsInput = z
+  .object({ orderDetails: OrderDetailsInput, orderCode: OrderCode.nullable().optional() })
+  .strict()
+  .meta({ id: "CampaignOrderDetailsInput" });
+
+export const OrderCodeQuery = z.object({ name: z.string().trim().min(1).max(160) }).meta({ id: "OrderCodeQuery" });
+
+/* POL-BE-119 — the sponsor confirms a fully staffed campaign's price before launch. */
+export const CampaignPriceConfirmInput = z
+  .object({ feeStatementHash: z.string().regex(/^sha256:[0-9a-f]{64}$/).describe("The fee statement shown (GET /campaigns/{id}/price → feeStatementHash)") })
+  .strict()
+  .meta({ id: "CampaignPriceConfirmInput", description: "The sponsor's admin confirms the campaign price and its fee statement (no fee added; BTG's fee is in the price; no processing to the sponsor). The signer, IP and user agent come from the request." });

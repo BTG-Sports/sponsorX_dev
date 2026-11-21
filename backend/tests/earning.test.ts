@@ -174,6 +174,8 @@ describe("P7-BE-01 · the earning is raised with the contract", () => {
 describe("P7-BE-02 · eligibility from completed work", () => {
   const tx = () => ({
     deliverable: { count: () => Promise.resolve(outstanding) },
+    /* POL-BE-116 — the order's payment timing, for the pay-by date (none here: 30 days). */
+    campaignOrder: { findFirst: () => Promise.resolve({ orderDetails: null }) },
     earning: {
       findUnique: () => Promise.resolve(earning),
       update: ({ data }: { data: Record<string, unknown> }) => {

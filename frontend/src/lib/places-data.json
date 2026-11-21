@@ -1,0 +1,1157 @@
+{
+ "asOf": "2026-11",
+ "groups": [
+  {
+   "label": "United States",
+   "countries": [
+    "US"
+   ]
+  },
+  {
+   "label": "East Africa",
+   "countries": [
+    "BI",
+    "CD",
+    "ET",
+    "KE",
+    "RW",
+    "SO",
+    "SS",
+    "TZ",
+    "UG"
+   ]
+  }
+ ],
+ "countries": {
+  "US": {
+   "name": "United States",
+   "regionLabel": "State",
+   "regions": [
+    {
+     "code": "AL",
+     "name": "Alabama",
+     "cities": 463
+    },
+    {
+     "code": "AK",
+     "name": "Alaska",
+     "cities": 149
+    },
+    {
+     "code": "AZ",
+     "name": "Arizona",
+     "cities": 91
+    },
+    {
+     "code": "AR",
+     "name": "Arkansas",
+     "cities": 501
+    },
+    {
+     "code": "CA",
+     "name": "California",
+     "cities": 483
+    },
+    {
+     "code": "CO",
+     "name": "Colorado",
+     "cities": 272
+    },
+    {
+     "code": "CT",
+     "name": "Connecticut",
+     "cities": 30
+    },
+    {
+     "code": "DE",
+     "name": "Delaware",
+     "cities": 57
+    },
+    {
+     "code": "DC",
+     "name": "District of Columbia",
+     "cities": 1
+    },
+    {
+     "code": "FL",
+     "name": "Florida",
+     "cities": 411
+    },
+    {
+     "code": "GA",
+     "name": "Georgia",
+     "cities": 538
+    },
+    {
+     "code": "HI",
+     "name": "Hawaii",
+     "cities": 161
+    },
+    {
+     "code": "ID",
+     "name": "Idaho",
+     "cities": 198
+    },
+    {
+     "code": "IL",
+     "name": "Illinois",
+     "cities": 1294
+    },
+    {
+     "code": "IN",
+     "name": "Indiana",
+     "cities": 566
+    },
+    {
+     "code": "IA",
+     "name": "Iowa",
+     "cities": 939
+    },
+    {
+     "code": "KS",
+     "name": "Kansas",
+     "cities": 625
+    },
+    {
+     "code": "KY",
+     "name": "Kentucky",
+     "cities": 419
+    },
+    {
+     "code": "LA",
+     "name": "Louisiana",
+     "cities": 305
+    },
+    {
+     "code": "ME",
+     "name": "Maine",
+     "cities": 23
+    },
+    {
+     "code": "MD",
+     "name": "Maryland",
+     "cities": 157
+    },
+    {
+     "code": "MA",
+     "name": "Massachusetts",
+     "cities": 58
+    },
+    {
+     "code": "MI",
+     "name": "Michigan",
+     "cities": 533
+    },
+    {
+     "code": "MN",
+     "name": "Minnesota",
+     "cities": 855
+    },
+    {
+     "code": "MS",
+     "name": "Mississippi",
+     "cities": 299
+    },
+    {
+     "code": "MO",
+     "name": "Missouri",
+     "cities": 936
+    },
+    {
+     "code": "MT",
+     "name": "Montana",
+     "cities": 127
+    },
+    {
+     "code": "NE",
+     "name": "Nebraska",
+     "cities": 528
+    },
+    {
+     "code": "NV",
+     "name": "Nevada",
+     "cities": 19
+    },
+    {
+     "code": "NH",
+     "name": "New Hampshire",
+     "cities": 13
+    },
+    {
+     "code": "NJ",
+     "name": "New Jersey",
+     "cities": 323
+    },
+    {
+     "code": "NM",
+     "name": "New Mexico",
+     "cities": 105
+    },
+    {
+     "code": "NY",
+     "name": "New York",
+     "cities": 594
+    },
+    {
+     "code": "NC",
+     "name": "North Carolina",
+     "cities": 549
+    },
+    {
+     "code": "ND",
+     "name": "North Dakota",
+     "cities": 355
+    },
+    {
+     "code": "OH",
+     "name": "Ohio",
+     "cities": 923
+    },
+    {
+     "code": "OK",
+     "name": "Oklahoma",
+     "cities": 591
+    },
+    {
+     "code": "OR",
+     "name": "Oregon",
+     "cities": 240
+    },
+    {
+     "code": "PA",
+     "name": "Pennsylvania",
+     "cities": 1008
+    },
+    {
+     "code": "RI",
+     "name": "Rhode Island",
+     "cities": 8
+    },
+    {
+     "code": "SC",
+     "name": "South Carolina",
+     "cities": 271
+    },
+    {
+     "code": "SD",
+     "name": "South Dakota",
+     "cities": 310
+    },
+    {
+     "code": "TN",
+     "name": "Tennessee",
+     "cities": 345
+    },
+    {
+     "code": "TX",
+     "name": "Texas",
+     "cities": 1221
+    },
+    {
+     "code": "UT",
+     "name": "Utah",
+     "cities": 255
+    },
+    {
+     "code": "VT",
+     "name": "Vermont",
+     "cities": 39
+    },
+    {
+     "code": "VA",
+     "name": "Virginia",
+     "cities": 227
+    },
+    {
+     "code": "WA",
+     "name": "Washington",
+     "cities": 281
+    },
+    {
+     "code": "WV",
+     "name": "West Virginia",
+     "cities": 230
+    },
+    {
+     "code": "WI",
+     "name": "Wisconsin",
+     "cities": 608
+    },
+    {
+     "code": "WY",
+     "name": "Wyoming",
+     "cities": 99
+    }
+   ]
+  },
+  "TZ": {
+   "name": "Tanzania",
+   "regionLabel": "Region",
+   "regions": [
+    {
+     "code": "01",
+     "name": "Arusha",
+     "cities": 1
+    },
+    {
+     "code": "02",
+     "name": "Dar es Salaam",
+     "cities": 5
+    },
+    {
+     "code": "03",
+     "name": "Dodoma",
+     "cities": 2
+    },
+    {
+     "code": "27",
+     "name": "Geita",
+     "cities": 1
+    },
+    {
+     "code": "04",
+     "name": "Iringa",
+     "cities": 2
+    },
+    {
+     "code": "05",
+     "name": "Kagera",
+     "cities": 1
+    },
+    {
+     "code": "28",
+     "name": "Katavi",
+     "cities": 1
+    },
+    {
+     "code": "08",
+     "name": "Kigoma",
+     "cities": 3
+    },
+    {
+     "code": "09",
+     "name": "Kilimanjaro",
+     "cities": 1
+    },
+    {
+     "code": "12",
+     "name": "Lindi",
+     "cities": 1
+    },
+    {
+     "code": "26",
+     "name": "Manyara",
+     "cities": 2
+    },
+    {
+     "code": "13",
+     "name": "Mara",
+     "cities": 3
+    },
+    {
+     "code": "14",
+     "name": "Mbeya",
+     "cities": 1
+    },
+    {
+     "code": "15",
+     "name": "Mjini Magharibi",
+     "cities": 1
+    },
+    {
+     "code": "16",
+     "name": "Morogoro",
+     "cities": 2
+    },
+    {
+     "code": "17",
+     "name": "Mtwara",
+     "cities": 4
+    },
+    {
+     "code": "18",
+     "name": "Mwanza",
+     "cities": 2
+    },
+    {
+     "code": "29",
+     "name": "Njombe",
+     "cities": 2
+    },
+    {
+     "code": "06",
+     "name": "Pemba North",
+     "cities": 1
+    },
+    {
+     "code": "10",
+     "name": "Pemba South",
+     "cities": 2
+    },
+    {
+     "code": "19",
+     "name": "Pwani",
+     "cities": 1
+    },
+    {
+     "code": "20",
+     "name": "Rukwa",
+     "cities": 1
+    },
+    {
+     "code": "21",
+     "name": "Ruvuma",
+     "cities": 2
+    },
+    {
+     "code": "22",
+     "name": "Shinyanga",
+     "cities": 2
+    },
+    {
+     "code": "30",
+     "name": "Simiyu",
+     "cities": 1
+    },
+    {
+     "code": "23",
+     "name": "Singida",
+     "cities": 1
+    },
+    {
+     "code": "31",
+     "name": "Songwe",
+     "cities": 2
+    },
+    {
+     "code": "24",
+     "name": "Tabora",
+     "cities": 2
+    },
+    {
+     "code": "25",
+     "name": "Tanga",
+     "cities": 3
+    },
+    {
+     "code": "07",
+     "name": "Unguja North",
+     "cities": 1
+    },
+    {
+     "code": "11",
+     "name": "Unguja South",
+     "cities": 1
+    }
+   ]
+  },
+  "UG": {
+   "name": "Uganda",
+   "regionLabel": "Region",
+   "regions": [
+    {
+     "code": "C",
+     "name": "Central",
+     "cities": 114
+    },
+    {
+     "code": "E",
+     "name": "Eastern",
+     "cities": 174
+    },
+    {
+     "code": "N",
+     "name": "Northern",
+     "cities": 129
+    },
+    {
+     "code": "W",
+     "name": "Western",
+     "cities": 210
+    }
+   ]
+  },
+  "KE": {
+   "name": "Kenya",
+   "regionLabel": "County",
+   "regions": [
+    {
+     "code": "01",
+     "name": "Baringo",
+     "cities": 4
+    },
+    {
+     "code": "02",
+     "name": "Bomet",
+     "cities": 3
+    },
+    {
+     "code": "03",
+     "name": "Bungoma",
+     "cities": 4
+    },
+    {
+     "code": "04",
+     "name": "Busia",
+     "cities": 4
+    },
+    {
+     "code": "05",
+     "name": "Elgeyo-Marakwet",
+     "cities": 3
+    },
+    {
+     "code": "06",
+     "name": "Embu",
+     "cities": 3
+    },
+    {
+     "code": "07",
+     "name": "Garissa",
+     "cities": 3
+    },
+    {
+     "code": "08",
+     "name": "Homa Bay",
+     "cities": 5
+    },
+    {
+     "code": "09",
+     "name": "Isiolo",
+     "cities": 4
+    },
+    {
+     "code": "10",
+     "name": "Kajiado",
+     "cities": 8
+    },
+    {
+     "code": "11",
+     "name": "Kakamega",
+     "cities": 4
+    },
+    {
+     "code": "12",
+     "name": "Kericho",
+     "cities": 4
+    },
+    {
+     "code": "13",
+     "name": "Kiambu",
+     "cities": 9
+    },
+    {
+     "code": "14",
+     "name": "Kilifi",
+     "cities": 6
+    },
+    {
+     "code": "15",
+     "name": "Kirinyaga",
+     "cities": 6
+    },
+    {
+     "code": "16",
+     "name": "Kisii",
+     "cities": 3
+    },
+    {
+     "code": "17",
+     "name": "Kisumu",
+     "cities": 5
+    },
+    {
+     "code": "18",
+     "name": "Kitui",
+     "cities": 3
+    },
+    {
+     "code": "19",
+     "name": "Kwale",
+     "cities": 5
+    },
+    {
+     "code": "20",
+     "name": "Laikipia",
+     "cities": 3
+    },
+    {
+     "code": "21",
+     "name": "Lamu",
+     "cities": 4
+    },
+    {
+     "code": "22",
+     "name": "Machakos",
+     "cities": 6
+    },
+    {
+     "code": "23",
+     "name": "Makueni",
+     "cities": 6
+    },
+    {
+     "code": "24",
+     "name": "Mandera",
+     "cities": 6
+    },
+    {
+     "code": "25",
+     "name": "Marsabit",
+     "cities": 6
+    },
+    {
+     "code": "26",
+     "name": "Meru",
+     "cities": 5
+    },
+    {
+     "code": "27",
+     "name": "Migori",
+     "cities": 6
+    },
+    {
+     "code": "28",
+     "name": "Mombasa",
+     "cities": 1
+    },
+    {
+     "code": "29",
+     "name": "Murang'a",
+     "cities": 7
+    },
+    {
+     "code": "30",
+     "name": "Nairobi",
+     "cities": 1
+    },
+    {
+     "code": "31",
+     "name": "Nakuru",
+     "cities": 7
+    },
+    {
+     "code": "32",
+     "name": "Nandi",
+     "cities": 4
+    },
+    {
+     "code": "33",
+     "name": "Narok",
+     "cities": 2
+    },
+    {
+     "code": "34",
+     "name": "Nyamira",
+     "cities": 4
+    },
+    {
+     "code": "35",
+     "name": "Nyandarua",
+     "cities": 5
+    },
+    {
+     "code": "36",
+     "name": "Nyeri",
+     "cities": 6
+    },
+    {
+     "code": "37",
+     "name": "Samburu",
+     "cities": 4
+    },
+    {
+     "code": "38",
+     "name": "Siaya",
+     "cities": 6
+    },
+    {
+     "code": "39",
+     "name": "Taita-Taveta",
+     "cities": 4
+    },
+    {
+     "code": "40",
+     "name": "Tana River",
+     "cities": 4
+    },
+    {
+     "code": "41",
+     "name": "Tharaka-Nithi",
+     "cities": 4
+    },
+    {
+     "code": "42",
+     "name": "Trans Nzoia",
+     "cities": 3
+    },
+    {
+     "code": "43",
+     "name": "Turkana",
+     "cities": 5
+    },
+    {
+     "code": "44",
+     "name": "Uasin Gishu",
+     "cities": 5
+    },
+    {
+     "code": "45",
+     "name": "Vihiga",
+     "cities": 5
+    },
+    {
+     "code": "46",
+     "name": "Wajir",
+     "cities": 5
+    },
+    {
+     "code": "47",
+     "name": "West Pokot",
+     "cities": 4
+    }
+   ]
+  },
+  "RW": {
+   "name": "Rwanda",
+   "regionLabel": "Province",
+   "regions": [
+    {
+     "code": "02",
+     "name": "Eastern",
+     "cities": 7
+    },
+    {
+     "code": "01",
+     "name": "Kigali City",
+     "cities": 1
+    },
+    {
+     "code": "03",
+     "name": "Northern",
+     "cities": 5
+    },
+    {
+     "code": "05",
+     "name": "Southern",
+     "cities": 8
+    },
+    {
+     "code": "04",
+     "name": "Western",
+     "cities": 7
+    }
+   ]
+  },
+  "BI": {
+   "name": "Burundi",
+   "regionLabel": "Province",
+   "regions": [
+    {
+     "code": "BH",
+     "name": "Buhumuza",
+     "cities": 4
+    },
+    {
+     "code": "BU",
+     "name": "Bujumbura",
+     "cities": 8
+    },
+    {
+     "code": "BG",
+     "name": "Burunga",
+     "cities": 7
+    },
+    {
+     "code": "BT",
+     "name": "Butanyerera",
+     "cities": 5
+    },
+    {
+     "code": "GT",
+     "name": "Gitega",
+     "cities": 4
+    }
+   ]
+  },
+  "SS": {
+   "name": "South Sudan",
+   "regionLabel": "State",
+   "regions": [
+    {
+     "code": "AB",
+     "name": "Abyei Administrative Area",
+     "cities": 2
+    },
+    {
+     "code": "EC",
+     "name": "Central Equatoria",
+     "cities": 6
+    },
+    {
+     "code": "EE",
+     "name": "Eastern Equatoria",
+     "cities": 5
+    },
+    {
+     "code": "PB",
+     "name": "Greater Pibor Administrative Area",
+     "cities": 3
+    },
+    {
+     "code": "JG",
+     "name": "Jonglei",
+     "cities": 7
+    },
+    {
+     "code": "LK",
+     "name": "Lakes",
+     "cities": 4
+    },
+    {
+     "code": "BN",
+     "name": "Northern Bahr el Ghazal",
+     "cities": 3
+    },
+    {
+     "code": "RU",
+     "name": "Ruweng Administrative Area",
+     "cities": 2
+    },
+    {
+     "code": "UY",
+     "name": "Unity",
+     "cities": 5
+    },
+    {
+     "code": "NU",
+     "name": "Upper Nile",
+     "cities": 7
+    },
+    {
+     "code": "WR",
+     "name": "Warrap",
+     "cities": 5
+    },
+    {
+     "code": "BW",
+     "name": "Western Bahr el Ghazal",
+     "cities": 3
+    },
+    {
+     "code": "EW",
+     "name": "Western Equatoria",
+     "cities": 8
+    }
+   ]
+  },
+  "ET": {
+   "name": "Ethiopia",
+   "regionLabel": "Region",
+   "regions": [
+    {
+     "code": "AA",
+     "name": "Addis Ababa",
+     "cities": 1
+    },
+    {
+     "code": "AF",
+     "name": "Afar",
+     "cities": 8
+    },
+    {
+     "code": "AM",
+     "name": "Amhara",
+     "cities": 21
+    },
+    {
+     "code": "BE",
+     "name": "Benishangul-Gumuz",
+     "cities": 4
+    },
+    {
+     "code": "CE",
+     "name": "Central Ethiopia",
+     "cities": 8
+    },
+    {
+     "code": "DD",
+     "name": "Dire Dawa",
+     "cities": 1
+    },
+    {
+     "code": "GA",
+     "name": "Gambela",
+     "cities": 3
+    },
+    {
+     "code": "HA",
+     "name": "Harari",
+     "cities": 1
+    },
+    {
+     "code": "OR",
+     "name": "Oromia",
+     "cities": 29
+    },
+    {
+     "code": "SI",
+     "name": "Sidama",
+     "cities": 6
+    },
+    {
+     "code": "SO",
+     "name": "Somali",
+     "cities": 8
+    },
+    {
+     "code": "SE",
+     "name": "South Ethiopia",
+     "cities": 10
+    },
+    {
+     "code": "SW",
+     "name": "South West Ethiopia Peoples'",
+     "cities": 6
+    },
+    {
+     "code": "TI",
+     "name": "Tigray",
+     "cities": 11
+    }
+   ]
+  },
+  "SO": {
+   "name": "Somalia",
+   "regionLabel": "Region",
+   "regions": [
+    {
+     "code": "AW",
+     "name": "Awdal",
+     "cities": 4
+    },
+    {
+     "code": "BK",
+     "name": "Bakool",
+     "cities": 5
+    },
+    {
+     "code": "BN",
+     "name": "Banaadir",
+     "cities": 1
+    },
+    {
+     "code": "BR",
+     "name": "Bari",
+     "cities": 6
+    },
+    {
+     "code": "BY",
+     "name": "Bay",
+     "cities": 4
+    },
+    {
+     "code": "GA",
+     "name": "Galguduud",
+     "cities": 6
+    },
+    {
+     "code": "GE",
+     "name": "Gedo",
+     "cities": 7
+    },
+    {
+     "code": "HI",
+     "name": "Hiiraan",
+     "cities": 4
+    },
+    {
+     "code": "JH",
+     "name": "Lower Juba",
+     "cities": 5
+    },
+    {
+     "code": "SH",
+     "name": "Lower Shabelle",
+     "cities": 7
+    },
+    {
+     "code": "JD",
+     "name": "Middle Juba",
+     "cities": 3
+    },
+    {
+     "code": "SD",
+     "name": "Middle Shabelle",
+     "cities": 5
+    },
+    {
+     "code": "MU",
+     "name": "Mudug",
+     "cities": 5
+    },
+    {
+     "code": "NU",
+     "name": "Nugaal",
+     "cities": 4
+    },
+    {
+     "code": "SA",
+     "name": "Sanaag",
+     "cities": 5
+    },
+    {
+     "code": "SO",
+     "name": "Sool",
+     "cities": 4
+    },
+    {
+     "code": "TO",
+     "name": "Togdheer",
+     "cities": 4
+    },
+    {
+     "code": "WO",
+     "name": "Woqooyi Galbeed",
+     "cities": 4
+    }
+   ]
+  },
+  "CD": {
+   "name": "DR Congo",
+   "regionLabel": "Province",
+   "regions": [
+    {
+     "code": "BU",
+     "name": "Bas-Uele",
+     "cities": 3
+    },
+    {
+     "code": "EQ",
+     "name": "Équateur",
+     "cities": 5
+    },
+    {
+     "code": "HK",
+     "name": "Haut-Katanga",
+     "cities": 8
+    },
+    {
+     "code": "HL",
+     "name": "Haut-Lomami",
+     "cities": 5
+    },
+    {
+     "code": "HU",
+     "name": "Haut-Uele",
+     "cities": 7
+    },
+    {
+     "code": "IT",
+     "name": "Ituri",
+     "cities": 6
+    },
+    {
+     "code": "KS",
+     "name": "Kasaï",
+     "cities": 4
+    },
+    {
+     "code": "KC",
+     "name": "Kasaï-Central",
+     "cities": 4
+    },
+    {
+     "code": "KE",
+     "name": "Kasaï-Oriental",
+     "cities": 3
+    },
+    {
+     "code": "KN",
+     "name": "Kinshasa",
+     "cities": 1
+    },
+    {
+     "code": "BC",
+     "name": "Kongo Central",
+     "cities": 9
+    },
+    {
+     "code": "KG",
+     "name": "Kwango",
+     "cities": 5
+    },
+    {
+     "code": "KL",
+     "name": "Kwilu",
+     "cities": 7
+    },
+    {
+     "code": "LO",
+     "name": "Lomami",
+     "cities": 4
+    },
+    {
+     "code": "LU",
+     "name": "Lualaba",
+     "cities": 8
+    },
+    {
+     "code": "MN",
+     "name": "Mai-Ndombe",
+     "cities": 6
+    },
+    {
+     "code": "MA",
+     "name": "Maniema",
+     "cities": 7
+    },
+    {
+     "code": "MO",
+     "name": "Mongala",
+     "cities": 4
+    },
+    {
+     "code": "NU",
+     "name": "Nord-Ubangi",
+     "cities": 5
+    },
+    {
+     "code": "NK",
+     "name": "North Kivu",
+     "cities": 10
+    },
+    {
+     "code": "SA",
+     "name": "Sankuru",
+     "cities": 6
+    },
+    {
+     "code": "SK",
+     "name": "South Kivu",
+     "cities": 10
+    },
+    {
+     "code": "SU",
+     "name": "Sud-Ubangi",
+     "cities": 5
+    },
+    {
+     "code": "TA",
+     "name": "Tanganyika",
+     "cities": 6
+    },
+    {
+     "code": "TO",
+     "name": "Tshopo",
+     "cities": 9
+    },
+    {
+     "code": "TU",
+     "name": "Tshuapa",
+     "cities": 6
+    }
+   ]
+  }
+ }
+}

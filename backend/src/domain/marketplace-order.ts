@@ -117,12 +117,15 @@ import { orderRefundCause, recordRefund, refundsForOrders, type RefundContext } 
 import { claimsMoney } from "./payout-auto";
 import { assertRefundable } from "./payment-exceptions";
 import { paymentsOpen } from "./payment-switch";
+import { cartFees } from "./order-fees";
+import { asFeeTerms, asListingFeeAcceptance, FEE_LINE_ORDER, feeRates, requireFeeStatement, spreadAmount, type OrderFeeTerms } from "./fee-statement";
 import {
   approvalReasons,
   billingProblems,
   canTransitionMarketplaceOrder,
   IllegalMarketplaceOrderTransitionError,
   manualPaymentProblems,
+  orderQuote,
   PAYMENT_WINDOW_DAYS,
   RELEASES,
   type BillingContact,
@@ -224,7 +227,7 @@ const SELECT = {
   paidAt: true, paidVia: true, paymentReference: true, paymentReceivedOn: true, refundedAt: true,
   lines: {
     select: { id: true, listingId: true, inventoryItemId: true, propertyId: true, sellerAthleteId: true, title: true, quantity: true, startsOn: true, endsOn: true, unitPriceCents: true, lineTotalCents: true },
-    orderBy: { startsOn: "asc" },
+    orderBy: FEE_LINE_ORDER,
   },
 } as const;
 
@@ -419,6 +422,8 @@ export type PlaceOrderRequest = {
   bodyHashShown?: string;
   /** POL-BE-05 — the total checkout showed; a different total refuses the order. */
   totalCentsShown?: number;
+  /** POL-BE-119 — the hash of the fee statement checkout showed. */
+  feeStatementHash?: string;
   /** The billing contact the sponsor confirmed. */
   billing?: BillingContact;
   /** §12 evidence — from the request, never the body. */
@@ -460,7 +465,7 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
       where: { tenantId: actor.tenantId, cartId: reservation.cartId },
       select: {
         id: true, listingId: true, quantity: true, startsOn: true, endsOn: true, unitPriceCents: true,
-        listing: { select: { title: true, tenantId: true, propertyId: true, sellerAthleteId: true, inventoryItemId: true, item: { select: { packageRules: true, components: { select: { componentItemId: true } } } } } },
+        listing: { select: { title: true, tenantId: true, propertyId: true, sellerAthleteId: true, inventoryItemId: true, feeAcceptance: true, item: { select: { packageRules: true, components: { select: { componentItemId: true } } } } } },
       },
     });
     await lockItems(tx, lines.flatMap((l) => [l.listing.inventoryItemId, ...l.listing.item.components.map((c) => c.componentItemId)]));
@@ -494,6 +499,20 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
 
     /* 2S4-BE-15 — with DEAL_CHAT on, every order goes to the Deal Chat first (it replaces the seller's step). */
     const dealChat = env.DEAL_CHAT;
+
+    /* POL-BE-119 — the rates are resolved once, now, and frozen on the order: what the sponsor's
+       statement discloses, what each seller's will, and what the ledger books. The sponsor accepts
+       their statement by its hash. A seller accepted their listing's fees when they submitted it;
+       a line whose rates are not those (a rule changed since, a rule for this sponsor, or a listing
+       submitted before statements existed) asks its seller to accept this order with its own
+       statement first — "any change requires written acceptance before it applies to that order". */
+    const fees = await cartFees(tx, actor.tenantId, actor.sponsorId!, lines, now);
+    const sponsorFees = requireFeeStatement(fees.statement, request.feeStatementHash);
+    const feeAsks = dealChat || !env.FEE_STATEMENT_REQUIRED ? [] : lines.filter((l) => {
+      const accepted = asListingFeeAcceptance(l.listing.feeAcceptance);
+      return !accepted || accepted.rates !== feeRates(fees.terms, l.id);
+    });
+    for (const l of feeAsks) asking.add(l.listingId);
     const order = await tx.marketplaceOrder.create({
       data: {
         tenantId: actor.tenantId, sponsorId: actor.sponsorId!, reservationId: reservation.id, currency: "USD",
@@ -511,6 +530,27 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
         },
       },
       select: SELECT,
+    });
+
+    /* POL-BE-119 — the frozen terms, re-keyed from cart lines to the order's own lines. */
+    const orderLines = await tx.marketplaceOrderLine.findMany({
+      /* tenant-scope: the lines of the order just created in the sponsor's tenant. */
+      where: { orderId: order.id, tenantId: actor.tenantId }, select: { id: true, listingId: true, startsOn: true, endsOn: true, quantity: true },
+    });
+    const taken = new Set<string>();
+    const lineTerms: OrderFeeTerms["lines"] = {};
+    for (const l of lines) {
+      const match = orderLines.find((o) => !taken.has(o.id) && o.listingId === l.listingId && o.quantity === l.quantity
+        && o.startsOn.getTime() === l.startsOn.getTime() && o.endsOn.getTime() === l.endsOn.getTime());
+      if (!match) throw new Error(`Order ${order.id}: no line for cart line ${l.id}.`);
+      taken.add(match.id);
+      lineTerms[match.id] = fees.terms.lines[l.id]!;
+    }
+    await tx.marketplaceOrder.update({
+      /* tenant-scope: the order just created in the sponsor's tenant. */
+      where: { id: order.id, tenantId: actor.tenantId },
+      data: { feeTerms: { ...fees.terms, lines: lineTerms, sponsor: sponsorFees } as unknown as Prisma.InputJsonValue },
+      select: { id: true },
     });
 
     /* The hold becomes the order's — not lapsing, not yet contracted. */
@@ -535,6 +575,8 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
            row itself, fixed (marketplace_order_immutable.sql). */
         acceptanceId: acceptance.acceptanceId, acceptedAt: acceptance.acceptedAt.toISOString(),
         terms: { kind: terms.kind, version: terms.version, bodyHash: terms.bodyHash },
+        /* POL-BE-119 — the fee statement accepted, and the sellers asked because their fees changed. */
+        feeStatement: { hash: sponsorFees.hash, shown: sponsorFees.shown }, feeAsks: feeAsks.map((l) => l.listing.title),
       },
     });
 
@@ -632,12 +674,8 @@ export async function afterDealsSigned(tx: Prisma.TransactionClient, orderId: st
       held.push(`${usd(d.amountCents)} agreed with ${who} is below the listed price of ${usd(d.originalAmountCents)}`);
     }
     if (d.amountCents === original) continue;
-    let left = d.amountCents;
-    lines.forEach((l, i) => {
-      const share = i === lines.length - 1 ? left : original > 0 ? Math.round((d.amountCents * l.lineTotalCents) / original) : Math.floor(d.amountCents / lines.length);
-      left -= share;
-      priceOf.set(l.id, share);
-    });
+    /* POL-BE-119 — the same spread the agreement's fee section was worked out from. */
+    for (const [id, share] of spreadAmount(lines, d.amountCents)) priceOf.set(id, share);
   }
   for (const l of order.lines) {
     const total = priceOf.get(l.id)!;
@@ -647,7 +685,13 @@ export async function afterDealsSigned(tx: Prisma.TransactionClient, orderId: st
       where: { id: l.id }, data: { lineTotalCents: total, unitPriceCents: Math.round(total / Math.max(1, l.quantity)) },
     });
   }
-  const { subtotalCents, feesCents, totalCents } = sponsorQuote([...priceOf.values()].reduce((s, c) => s + c, 0));
+  /* POL-BE-119 — at the buyer-fee rate frozen when the order was placed, not today's setting. */
+  const frozen = asFeeTerms((await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the order locked and read above, in its own tenant. */
+    where: { id: order.id }, select: { feeTerms: true },
+  })).feeTerms);
+  const agreedSubtotal = [...priceOf.values()].reduce((s, c) => s + c, 0);
+  const { subtotalCents, feesCents, totalCents } = frozen ? orderQuote(agreedSubtotal, frozen.buyerFeeBps) : sponsorQuote(agreedSubtotal);
   const sponsor = await tx.sponsor.findFirst({ where: { tenantId: order.tenantId, id: order.sponsorId }, select: { name: true } });
   const limit = await sponsorLimit(tx, order.tenantId, order.sponsorId);
   const reasons = [...held, ...approvalReasons({ totalCents, limitCents: limit.limitCents, sponsorName: sponsor?.name ?? "the sponsor" })];

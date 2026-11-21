@@ -40,6 +40,10 @@ import { factOrderBooked, factOrderCancelled } from "./fact-writers";
 import { createEarningForOrder } from "./earning";
 import { projectLine } from "./pricing-learning";
 import { advanceCampaign, advanceCampaignOfOrder, lockCampaignForStaffing } from "./campaign-stages";
+import { nextOrderNumberIn, storedOrderDetails } from "./campaign-order-details";
+import { detailsForJob, exclusivityWords } from "./order-details-rules";
+import { requireFeeStatement } from "./fee-statement";
+import { athleteStatement } from "./fee-statement-rules";
 
 export class TermsFrozenError extends Error {
   readonly status = 409;
@@ -114,9 +118,12 @@ export async function createOrder(
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({
       where: { ...whereFor(actor, "campaign", "write"), id: input.campaignId },
-      select: { id: true, budget: true },
+      select: { id: true, budget: true, orderDetails: true },
     });
     if (!campaign) throw new ForbiddenError("campaignOrder", "write");
+    /* POL-BE-116 — the campaign's order details for this job, fixed on the order. */
+    const campaignDetails = storedOrderDetails(campaign.orderDetails);
+    const details = campaignDetails ? detailsForJob(campaignDetails, input.jobId) : null;
     /* P4-BE-09 — the campaign lock first, so this cannot interleave with an
        automatic STAFFING → APPROVAL move (and the budget below is read with
        no other line landing beside it). */
@@ -171,8 +178,11 @@ export async function createOrder(
         compensation: input.compensation,
         sellPrice: input.sellPrice,
         usageRights: input.usageRights,
-        exclusivity: input.exclusivity ?? null,
+        exclusivity: input.exclusivity ?? (details ? exclusivityWords(details) : null),
         dueDate: input.dueDate,
+        /* POL-BE-116 — numbered, and carrying the template's details. */
+        orderNumber: await nextOrderNumberIn(tx, actor.tenantId, input.campaignId),
+        ...(details ? { orderDetails: details as Prisma.InputJsonValue } : {}),
         projectedImpressions: projection.projectedImpressions,
         impliedCpm: projection.impliedCpm,
         projectionSource: projection.projectionSource as Prisma.CampaignOrderCreateInput["projectionSource"],
@@ -356,7 +366,7 @@ export async function applyOrderTransitionIn(
 export async function acceptOrder(
   actor: Actor,
   orderId: string,
-  evidence: { agreementId: string; bodyHashShown: string; ip: string; userAgent: string },
+  evidence: { agreementId: string; bodyHashShown: string; ip: string; userAgent: string; feeStatementHash?: string | null },
 ): Promise<{ id: string; state: OrderState; acceptanceId: string }> {
   assertAllowed(actor, "campaignOrder", "write");
 
@@ -409,7 +419,11 @@ export async function acceptOrder(
     /* One acceptance per ORDER, not per signer — see acceptAgreementIn's
        `oncePerSigner`. The `from !== "SENT"` guard above is the double-accept
        protection, and it runs inside this transaction. */
-    const acceptance = await acceptAgreementIn(tx, actor, evidence, { oncePerSigner: false });
+    /* POL-BE-119 — "before campaign acceptance, disclose the applicable transaction fee, fee payer
+       and processing costs in writing": the athlete accepts the statement they were shown. */
+    const fee = requireFeeStatement(athleteStatement(order.compensation), evidence.feeStatementHash);
+    const { feeStatementHash: _shown, ...agreementEvidence } = evidence;
+    const acceptance = await acceptAgreementIn(tx, actor, agreementEvidence, { oncePerSigner: false });
 
     /* tenant-scope: the row loaded above through whereFor(campaignOrder, write). */
     const updated = await tx.campaignOrder.update({
@@ -418,6 +432,7 @@ export async function acceptOrder(
         state: "ACCEPTED",
         acceptedAt: new Date(),
         acceptanceId: acceptance.acceptanceId,
+        feeStatement: fee as unknown as Prisma.InputJsonValue,
       },
       select: { id: true, state: true },
     });
