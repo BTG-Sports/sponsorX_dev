@@ -52,3 +52,10 @@
 - **Checked:** frontend 220 files / 2,747 tests pass; the backend alignment checks pass; lint clean; `npm run build` passes after `prisma generate` (the client was stale after today's pull).
 - **Tracker:** Polish row `POL-FE-121` (row 171) Done 2026-11-21; `POL-FE-122` (row 172) at Code review, infinex1; autofilter, conditional formatting and the Status list extended to row 172. Items 121 and 122 added to polish.md.
 - **Renumbered:** the quote fix (#518) was committed as `POL-FE-116`, a number already taken that day; it is `POL-FE-121`.
+
+## POL-FE-123 · The web build stops needing the backend's generated client (infinex1) — Code review
+- **Found while deploying POL-FE-121/122 to staging:** the api deployed, the web build failed. Every web build since 2026-11-20 19:47 had failed on staging AND production (`53eb0356`, `a85b4935`, now `a3a8d825`); both sites still serve web `e9bf9102` (2026-11-20 04:38). So this morning's "deployed a85b4935" was true for the api, not the web.
+- **Cause:** `next build` type-checks frontend tests; `tests/campaign-builder.test.ts` (2026-11-20) imports `backend/src/contracts/campaign.ts` → `domain/student.ts` → `db/client.ts` → the generated Prisma client, which Railway's web build never generates (CI does, so CI was green).
+- **Fix:** `frontend/tsconfig.build.json` (tsconfig.json without tests/) via `typescript.tsconfigPath`; a CI step type-checks the tests with the client generated.
+- **Checked:** web build passes with `backend/src/generated` removed (693 errors before); the full `tsc -p frontend/tsconfig.json` passes.
+- **Tracker:** Polish row `POL-FE-123` at Code review, infinex1; ranges extended to row 173.

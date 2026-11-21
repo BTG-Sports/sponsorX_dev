@@ -1,0 +1,8 @@
+// POL-FE-123 — what `next build` type-checks (next.config.ts
+// typescript.tsconfigPath): the app, without tests/. Tests import backend
+// code that needs the generated Prisma client, which the web build does not
+// generate. CI type-checks the tests separately with tsconfig.json.
+{
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "tests", "e2e", "**/*.test.ts", "**/*.test.tsx"]
+}
