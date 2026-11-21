@@ -34,6 +34,8 @@ import { ForbiddenError } from "../auth/errors";
 import { checkListing, UnavailableError, unitsTaken } from "./availability";
 import { liveCart, sponsorQuote } from "./cart";
 import { billingPrefill, currentOrderTerms } from "./order-terms";
+import { CART_FEE_LINE_SELECT, cartFees } from "./order-fees";
+import { presentStatement } from "./fee-statement";
 
 export const HOLD_MS = 15 * 60 * 1000;
 
@@ -128,12 +130,17 @@ export async function getReservation(actor: Actor, id: string) {
   if (out.state !== "HELD") return { ...out, checkout: null };
   const [terms, prefill, lines, limit] = await Promise.all([
     currentOrderTerms(prisma, tenantId), billingPrefill(prisma, tenantId, out.sponsorId),
-    prisma.cartLine.findMany({ where: { tenantId, cartId: out.cartId }, select: { quantity: true, unitPriceCents: true } }),
+    prisma.cartLine.findMany({ where: { tenantId, cartId: out.cartId }, select: CART_FEE_LINE_SELECT }),
     /* POL-BE-72 — the sponsor's own spending limit, shown beside the total. */
     sponsorLimit(prisma, tenantId, out.sponsorId),
   ]);
+  /* POL-BE-119 — and the fee statement placing it accepts: the fees, who pays them, the processing cost. */
+  const fees = await prisma.$transaction((tx) => cartFees(tx, tenantId, out.sponsorId, lines, new Date()));
   /* POL-BE-36 — and whether card payment is open right now (the checkout says payments open soon while it isn't). */
-  return { ...out, checkout: { terms, ...prefill, quote: sponsorQuote(lines.reduce((s, l) => s + l.quantity * l.unitPriceCents, 0)), paymentsOpen: await paymentsOpen(), spendingLimitCents: limit.limitCents } };
+  return { ...out, checkout: {
+    terms, ...prefill, quote: sponsorQuote(lines.reduce((s, l) => s + l.quantity * l.unitPriceCents, 0)), ...presentStatement(fees.statement),
+    paymentsOpen: await paymentsOpen(), spendingLimitCents: limit.limitCents,
+  } };
 }
 
 /** The sponsor lets go of a hold. */

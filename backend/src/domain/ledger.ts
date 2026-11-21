@@ -8,8 +8,14 @@
  * credit, type and status." Done when: "Property dashboard reconciles booked
  * revenue, ledger balance, paid earnings and pending earnings exactly."
  *
+ * PLACED → `orderFeeTerms` / `ensureFeeTerms` (POL-BE-119): the rules are
+ * resolved once, when the order is placed, and frozen on the order
+ * (MarketplaceOrder.feeTerms) — the rates every fee statement discloses to the
+ * sponsor and the sellers before they accept. An order placed before that has
+ * its terms frozen the first time they are disclosed.
+ *
  * CONTRACT → `bookOrder`, inside the approval's transaction
- * (marketplace-order.ts): resolve the rules once, break every line down
+ * (marketplace-order.ts): take the frozen rules, break every line down
  * (ledger-math.ts), freeze the breakdown (OrderLineFinancials) and post one
  * balanced BOOKING journal per line. Nothing is ever recomputed: payment,
  * release and reversal all move amounts already booked.
@@ -21,14 +27,16 @@
  *
  * Entries and snapshots are Postgres's to keep (prisma/sql/ledger_immutable.sql).
  */
-import type { Prisma } from "../generated/prisma/client";
+import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { resolveRates } from "./commission";
-import { breakdownOrder, type LineBreakdown } from "./ledger-math";
+import { type LineBreakdown } from "./ledger-math";
+import { env } from "../config/env";
+import { asFeeTerms, breakdownUnder, FEE_LINE_ORDER, type OrderFeeTerms } from "./fee-statement";
 import { factMarketplaceContracted, factMarketplaceUnwound } from "./fact-writers";
 
 type Entry = {
@@ -93,9 +101,90 @@ function bookingEntries(
   ];
 }
 
+/** A line to price: its key (order line id, cart line id or listing id) and what decides its rules. */
+export type FeeTermsLine = { key: string; inventoryItemId: string; propertyId: string | null; sellerAthleteId: string | null };
+
 /**
- * 2S4-BE-04 + 2S5-BE-02 — at contract time: the rules resolved once, each
- * line's breakdown frozen, one balanced BOOKING journal per line.
+ * POL-BE-119 — the commission rates for these lines, resolved now: the
+ * processing rule (the sponsor's, when there is one), each line's rules, and
+ * the team's cut of a roster athlete's line. Not written; the caller freezes
+ * them — placeOrder on the order, submitListing on the listing, or
+ * `ensureFeeTerms` for an order placed before the terms existed.
+ */
+export async function resolveFeeTerms(
+  tx: Tx, operatorTenantId: string, sponsorId: string | null, lines: FeeTermsLine[], at: Date, buyerFeeBps: number,
+): Promise<OrderFeeTerms> {
+  const items = await tx.inventoryItem.findMany({
+    /* tenant-scope: the items these lines name, each in the tenant its line records. */
+    where: { id: { in: lines.map((l) => l.inventoryItemId) } },
+    select: { id: true, athleteId: true, athlete: { select: { teamShareBps: true } } },
+  });
+  const properties = await tx.property.findMany({
+    /* tenant-scope: the properties these lines name. */
+    where: { id: { in: lines.map((l) => l.propertyId).filter((x): x is string => Boolean(x)) } }, select: { id: true, kind: true },
+  });
+  const byItem = new Map(items.map((i) => [i.id, i]));
+  const kindOf = new Map(properties.map((p) => [p.id, p.kind]));
+  const processing = (await resolveRates(tx, operatorTenantId, { sponsorId }, at, ["PROCESSING"])).PROCESSING;
+  const out: OrderFeeTerms["lines"] = {};
+  for (const l of lines) {
+    const item = byItem.get(l.inventoryItemId);
+    const { PROCESSING: _p, ...rules } = await resolveRates(tx, operatorTenantId, { propertyId: l.propertyId, propertyKind: l.propertyId ? kindOf.get(l.propertyId) ?? null : null, sponsorId }, at);
+    out[l.key] = {
+      rules,
+      athleteId: item?.athleteId ?? null,
+      /* 2S3-BE-05 — sold by the athlete with no team: no team share at all,
+         not even the TEAM_SHARE rule's default, so the athlete is the only payee. */
+      teamShareBps: l.sellerAthleteId ? 0 : item?.athlete?.teamShareBps ?? null,
+    };
+  }
+  return { v: 1, resolvedAt: at.toISOString(), buyerFeeBps, processing, lines: out, sponsor: null };
+}
+
+/** The rates for an order's own lines, keyed by order line id. */
+export async function orderFeeTerms(tx: Tx, orderId: string, at: Date, buyerFeeBps: number): Promise<OrderFeeTerms> {
+  const order = await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the order the caller loaded through whereFor(marketplaceOrder, …) or just created. */
+    where: { id: orderId },
+    select: { tenantId: true, sponsorId: true, lines: { select: { id: true, inventoryItemId: true, propertyId: true, sellerAthleteId: true } } },
+  });
+  return resolveFeeTerms(tx, order.tenantId, order.sponsorId, order.lines.map((l) => ({ key: l.id, ...l })), at, buyerFeeBps);
+}
+
+/**
+ * The order's frozen fee terms; frozen now if it has none (an order placed
+ * before POL-BE-119, disclosed for the first time). Write-once in Postgres.
+ */
+export async function ensureFeeTerms(tx: Tx, orderId: string, at: Date): Promise<OrderFeeTerms> {
+  const row = await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the order the caller loaded through whereFor(…) — its own seller approval, Deal Chat or approval. */
+    where: { id: orderId }, select: { tenantId: true, feeTerms: true },
+  });
+  const frozen = asFeeTerms(row.feeTerms);
+  if (frozen) return frozen;
+  const terms = await orderFeeTerms(tx, orderId, at, env.MARKETPLACE_BUYER_FEE_BPS);
+  /* Conditional: a concurrent first disclosure that froze them first wins, and is read back. */
+  const won = await tx.marketplaceOrder.updateMany({
+    /* tenant-scope: the order read above, by id and its own tenant; conditional on no terms yet. */
+    where: { id: orderId, tenantId: row.tenantId, feeTerms: { equals: Prisma.AnyNull } },
+    data: { feeTerms: terms as unknown as Prisma.InputJsonValue },
+  });
+  if (won.count === 1) {
+    await audit(tx, { userId: null, tenantId: row.tenantId }, "marketplaceOrder.feeTermsFrozen", "MarketplaceOrder", orderId, {
+      after: { resolvedAt: terms.resolvedAt, buyerFeeBps: terms.buyerFeeBps, processing: terms.processing, lines: Object.keys(terms.lines).length, firstDisclosure: true },
+    });
+    return terms;
+  }
+  return asFeeTerms((await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the same order, re-read after a concurrent first disclosure froze its terms. */
+    where: { id: orderId }, select: { feeTerms: true },
+  })).feeTerms)!;
+}
+
+/**
+ * 2S4-BE-04 + 2S5-BE-02 — at contract time: each line broken down under the
+ * order's frozen rules (POL-BE-119), the breakdown frozen, one balanced
+ * BOOKING journal per line.
  */
 export async function bookOrder(tx: Tx, orderId: string, at: Date) {
   const order = await tx.marketplaceOrder.findUniqueOrThrow({
@@ -103,36 +192,23 @@ export async function bookOrder(tx: Tx, orderId: string, at: Date) {
     where: { id: orderId },
     select: {
       id: true, tenantId: true, sponsorId: true, feesCents: true,
-      lines: { select: { id: true, inventoryItemId: true, itemTenantId: true, propertyId: true, sellerAthleteId: true, lineTotalCents: true }, orderBy: { startsOn: "asc" } },
+      lines: { select: { id: true, inventoryItemId: true, itemTenantId: true, propertyId: true, sellerAthleteId: true, lineTotalCents: true }, orderBy: FEE_LINE_ORDER },
     },
   });
   const items = await tx.inventoryItem.findMany({
     /* tenant-scope: the items this order's lines name, each in the tenant its line records. */
     where: { id: { in: order.lines.map((l) => l.inventoryItemId) } },
-    select: { id: true, athleteId: true, athlete: { select: { teamShareBps: true, tenantId: true } }, property: { select: { kind: true } } },
+    select: { id: true, athlete: { select: { tenantId: true } } },
   });
   const properties = await tx.property.findMany({
     /* tenant-scope: the properties this order's lines name. */
-    where: { id: { in: order.lines.map((l) => l.propertyId).filter((x): x is string => Boolean(x)) } }, select: { id: true, kind: true, tenantId: true },
+    where: { id: { in: order.lines.map((l) => l.propertyId).filter((x): x is string => Boolean(x)) } }, select: { id: true, tenantId: true },
   });
   const byItem = new Map(items.map((i) => [i.id, i]));
-  const kindOf = new Map(properties.map((p) => [p.id, p.kind]));
   const tenantOf = new Map(properties.map((p) => [p.id, p.tenantId]));
 
-  const processing = (await resolveRates(tx, order.tenantId, { sponsorId: order.sponsorId }, at, ["PROCESSING"])).PROCESSING;
-  const inputs = [];
-  for (const l of order.lines) {
-    const item = byItem.get(l.inventoryItemId);
-    const rates = await resolveRates(tx, order.tenantId, { propertyId: l.propertyId, propertyKind: l.propertyId ? kindOf.get(l.propertyId) ?? null : null, sponsorId: order.sponsorId }, at);
-    inputs.push({
-      lineId: l.id, grossCents: l.lineTotalCents, rules: rates,
-      athleteId: item?.athleteId ?? null,
-      /* 2S3-BE-05 — sold by the athlete with no team: no team share at all,
-         not even the TEAM_SHARE rule's default, so the athlete is the only payee. */
-      teamShareBps: l.sellerAthleteId ? 0 : item?.athlete?.teamShareBps ?? null,
-    });
-  }
-  const breakdown = breakdownOrder(inputs, processing);
+  const terms = await ensureFeeTerms(tx, order.id, at);
+  const breakdown = breakdownUnder(terms, order.lines);
 
   for (const [i, b] of breakdown.entries()) {
     const line = order.lines[i]!;

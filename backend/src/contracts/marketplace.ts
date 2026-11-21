@@ -7,6 +7,16 @@ import { LISTING_STATES } from "../domain/listing-rules";
 import { ORG_TYPES } from "../domain/onboarding-rules";
 import { LOGO_TYPES } from "../domain/branding";
 
+/** POL-BE-119 — the hash of the fee statement the screen showed ("sha256:<hex>"), echoed back with an acceptance. */
+export const FeeStatementHash = z.string().regex(/^sha256:[0-9a-f]{64}$/).meta({ id: "FeeStatementHash", description: "The hash of the fee statement shown before accepting (POL-BE-119): the transaction fee, who pays it and the processing cost." });
+export const ListingFeesInput = z
+  .object({ feeStatementHash: FeeStatementHash })
+  .strict()
+  .meta({ id: "ListingFeesInput", description: "The seller accepts the listing's fee statement at today's rates (GET /listings/{id} → feeStatementHash), without pausing it." });
+export const ListingSubmitInput = z
+  .object({ feeStatementHash: FeeStatementHash.optional() })
+  .meta({ id: "ListingSubmitInput", description: "Submitting accepts the listing's fee statement (GET /listings/{id} returns it to the seller)." });
+
 /* --------------------------------------------------------------------------
    Phase 2 Sprint 2–3 on the wire — inventory (2S2-BE-01), the team roster
    (2S2-BE-04), listings (2S3-BE-01), formal offers (2S2-BE-03) and tenant
@@ -76,7 +86,11 @@ export const ListingInput = z
   .meta({ id: "ListingInput", description: "A listing on one of the property's items, or a roster athlete's — or, from an approved athlete with no team, on one of their own items (2S3-BE-05). Starts DRAFT." });
 export const ListingPatch = z.object(listingFields).partial().strict().meta({ id: "ListingPatch", description: "Only while DRAFT, PAUSED or held for BTG (PENDING_APPROVAL — the edit takes it back to DRAFT, to submit again)." });
 export const ListingTransitionInput = z
-  .object({ to: z.enum(["PAUSED", "PUBLISHED", "ARCHIVED"]) })
+  .object({
+    to: z.enum(["PAUSED", "PUBLISHED", "ARCHIVED"]),
+    /* POL-BE-119 — resuming accepts the listing's fee statement, as submitting does. */
+    feeStatementHash: FeeStatementHash.optional(),
+  })
   .meta({ id: "ListingTransitionInput", description: "Pause, resume or archive. Resuming runs the same automatic path as submitting (2S3-BE-06): live when the checks pass and nothing is flagged, else held for BTG; a listing BTG paused always goes back to BTG." });
 export const ListingDecisionInput = z
   .object({ decision: z.enum(["APPROVE", "REQUEST_CHANGES", "REJECT"]), notes: z.string().max(4000).nullable().optional() })
@@ -177,6 +191,7 @@ export const OfferResponseInput = z
     /* The agreement's own fingerprint form ("sha256:<hex>"), as campaign.ts and
        guardian.ts take it — a 64-char rule refused every real agreement. */
     bodyHashShown: z.string().min(1).describe("Hash of the agreement text as rendered to the signer").optional(),
+    feeStatementHash: FeeStatementHash.describe("POL-BE-119 — ACCEPT: the fee statement shown (GET /offers/{id} → feeStatementHash)").optional(),
   })
   .meta({ id: "OfferResponseInput", description: "ACCEPT needs the terms hash shown and the agreement shown; it freezes the terms and schedules the deliverables. REQUEST_CHANGE needs a note; the offer stays SENT." });
 
@@ -236,6 +251,7 @@ export const PlaceOrderInput = z
     /* The agreement's own fingerprint form ("sha256:<hex>"), as offers take it. */
     bodyHashShown: z.string().min(1).max(200).describe("Hash of the order terms as rendered to the sponsor").optional(),
     totalCentsShown: z.number().int().min(0).describe("POL-BE-05 — the total checkout showed (checkout.quote.totalCents); a different total refuses the order, 409 total_changed").optional(),
+    feeStatementHash: FeeStatementHash.describe("POL-BE-119 — the fee statement checkout showed (checkout.feeStatementHash); a different one refuses the order, 409 fee_statement_changed").optional(),
     billing: OrderBillingContact.optional(),
   })
   .strict()
@@ -266,6 +282,7 @@ export const SellerApprovalDecisionInput = z
   .object({
     decision: z.enum(["ACCEPT", "DECLINE"]),
     reason: z.string().trim().max(2000).nullable().optional().describe("Why — required to decline; the sponsor reads it"),
+    feeStatementHash: FeeStatementHash.describe("POL-BE-119 — accepting: the fee statement shown (GET /seller-approvals/{id} → feeStatementHash)").optional(),
   })
   .strict()
   .meta({ id: "SellerApprovalDecisionInput", description: "The seller accepts the order, or declines it with a reason the sponsor reads — within 48 hours of it being placed." });

@@ -227,6 +227,8 @@ export const OrderAcceptanceInput = z
   .object({
     agreementId: z.string().min(1),
     bodyHashShown: z.string().min(1).describe("Hash of the contract text as rendered to the signer"),
+    feeStatementHash: z.string().regex(/^sha256:[0-9a-f]{64}$/).optional()
+      .describe("POL-BE-119 — the fee statement shown (GET /orders/{id} → feeStatementHash); a different one refuses, 409 fee_statement_changed"),
   })
   .meta({
     id: "OrderAcceptanceInput",
@@ -324,3 +326,9 @@ export const CampaignOrderDetailsInput = z
   .meta({ id: "CampaignOrderDetailsInput" });
 
 export const OrderCodeQuery = z.object({ name: z.string().trim().min(1).max(160) }).meta({ id: "OrderCodeQuery" });
+
+/* POL-BE-119 — the sponsor confirms a fully staffed campaign's price before launch. */
+export const CampaignPriceConfirmInput = z
+  .object({ feeStatementHash: z.string().regex(/^sha256:[0-9a-f]{64}$/).describe("The fee statement shown (GET /campaigns/{id}/price → feeStatementHash)") })
+  .strict()
+  .meta({ id: "CampaignPriceConfirmInput", description: "The sponsor's admin confirms the campaign price and its fee statement (no fee added; BTG's fee is in the price; no processing to the sponsor). The signer, IP and user agent come from the request." });

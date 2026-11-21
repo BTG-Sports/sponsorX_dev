@@ -29,6 +29,7 @@ import { lockCampaign } from "./campaign-stages";
 import { launchIn } from "./campaign";
 import { dueBefore, launchDay, launchDue } from "./auto-staffing-rules";
 import { logError } from "../lib/redact";
+import { priceNotConfirmed } from "./campaign-price";
 
 const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
 
@@ -42,6 +43,8 @@ export async function launchIfDue(tenantId: string, campaignId: string, now = ne
       where: { id: campaignId, tenantId }, select: { id: true, tenantId: true, startDate: true },
     });
     if (!c || !launchDue(c.startDate, now)) return null;
+    /* POL-BE-119 — held, not failed, until the sponsor confirms the price; the next sweep after they do launches it. */
+    if (await priceNotConfirmed(tx, c)) return null;
     const day = launchDay(c.startDate).toISOString().slice(0, 10);
     return launchIn(tx, SYSTEM(tenantId), { id: c.id, tenantId: c.tenantId }, state, now, {
       reason: launchDay(c.startDate).getTime() < launchDay(now).getTime()

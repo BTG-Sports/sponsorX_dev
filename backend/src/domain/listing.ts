@@ -45,6 +45,8 @@
  * once a day a summary of what went live on its own (`sendListingDigests`).
  */
 import type { Prisma } from "../generated/prisma/client";
+import { resolveFeeTerms } from "./ledger";
+import { asListingFeeAcceptance, feeRates, listingStatement, presentStatement, requireFeeStatement, type ListingFeeAcceptance } from "./fee-statement";
 import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
 import { env } from "../config/env";
@@ -230,7 +232,39 @@ export async function listListingsPage(actor: Actor, req: PageRequest, f: { scop
 export async function getListing(actor: Actor, id: string) {
   const row = await prisma.listing.findFirst({ where: { ...whereFor(actor, "listing", "read"), id }, select: SELECT });
   if (!row) throw new ForbiddenError("listing", "read");
-  return view(row, actor);
+  /* POL-BE-119 — the seller (not a sponsor browsing) reads the fees they accept by submitting it. */
+  const own = can(actor, "listing", "write") && (await prisma.listing.count({ where: { ...whereFor(actor, "listing", "write"), id } })) === 1;
+  if (!own) return view(row, actor);
+  const { statement, accepted } = await prisma.$transaction(async (tx) => ({
+    statement: (await listingFees(tx, row, new Date())).statement,
+    accepted: asListingFeeAcceptance((await tx.listing.findUniqueOrThrow({
+      /* tenant-scope: the listing just read through whereFor(listing, write). */
+      where: { id }, select: { feeAcceptance: true },
+    })).feeAcceptance),
+  }));
+  return { ...view(row, actor), ...presentStatement(statement), feeAccepted: accepted ? { at: accepted.acceptedAt, hash: accepted.record.hash } : null };
+}
+
+/**
+ * POL-BE-119 — the seller's fee statement for this listing at today's rates:
+ * an order of one unit at its price, with no sponsor yet (a sponsor's own rule
+ * shows up on that sponsor's orders, which then ask the seller).
+ */
+async function listingFees(tx: Prisma.TransactionClient, row: Row, now: Date) {
+  const terms = await resolveFeeTerms(tx, row.tenant.operatorTenantId ?? row.tenantId, null,
+    [{ key: row.id, inventoryItemId: row.inventoryItemId, propertyId: row.propertyId, sellerAthleteId: row.sellerAthleteId }], now, env.MARKETPLACE_BUYER_FEE_BPS);
+  return { terms, statement: listingStatement(terms, row.id, row.item.priceCents) };
+}
+
+/** Submitting or resuming is the seller's acceptance of the listing's fees: checked, then kept on the listing. */
+async function acceptListingFees(tx: Prisma.TransactionClient, actor: Actor, row: Row, shown: string | null | undefined, now: Date) {
+  const { terms, statement } = await listingFees(tx, row, now);
+  const record = requireFeeStatement(statement, shown);
+  const acceptance: ListingFeeAcceptance = { record, rates: feeRates(terms, row.id), acceptedAt: now.toISOString(), acceptedBy: actor.userId };
+  await tx.listing.update({
+    /* tenant-scope: ownListing's row, read through whereFor(listing, write). */
+    where: { id: row.id }, data: { feeAcceptance: acceptance as unknown as Prisma.InputJsonValue }, select: { id: true },
+  });
 }
 
 /**
@@ -611,13 +645,33 @@ export async function relistAfterReactivation(tx: Prisma.TransactionClient, by: 
  * otherwise live at once unless flagged for BTG (2S3-BE-06). A paused
  * listing re-submitted takes the same path as resuming it.
  */
-export async function submitListing(actor: Actor, id: string) {
+export async function submitListing(actor: Actor, id: string, feeStatementHash?: string | null) {
   return prisma.$transaction(async (tx) => {
     const row = await ownListing(tx, actor, id);
     if (row.state !== "DRAFT" && row.state !== "PAUSED") throw new IllegalListingTransitionError(row.state as ListingState, "PUBLISHED");
     /* A draft is new (paused by coming of age, 2S1-BE-12); a paused listing coming back is not. */
     await assertMayCommit(tx, actor, row.state === "DRAFT" ? "list" : "manage");
-    return goLive(tx, actor, row, new Date());
+    const now = new Date();
+    await acceptListingFees(tx, actor, row, feeStatementHash, now);
+    return goLive(tx, actor, row, now);
+  });
+}
+
+/**
+ * POL-BE-119 — the seller accepts a listing's fees at today's rates without
+ * pausing it: a live listing submitted before fee statements existed, or one
+ * whose rates changed since. Its next orders then go ahead without asking,
+ * as long as their rates are these.
+ */
+export async function acceptListingFeesNow(actor: Actor, id: string, feeStatementHash: string) {
+  return prisma.$transaction(async (tx) => {
+    const row = await ownListing(tx, actor, id);
+    if (row.state === "ARCHIVED") throw new ListingError(`A listing that is ${row.state} takes no orders, so it has no fees to accept.`, 409);
+    await assertMayCommit(tx, actor, "manage");
+    const now = new Date();
+    await acceptListingFees(tx, actor, row, feeStatementHash, now);
+    await audit(tx, actor, "listing.acceptFees", "Listing", row.id, { after: { feeStatementHash } });
+    return { id: row.id, feeAccepted: { at: now.toISOString(), hash: feeStatementHash } };
   });
 }
 
@@ -626,13 +680,15 @@ export async function submitListing(actor: Actor, id: string) {
  * (2S3-BE-06): the same automatic path — and a listing BTG paused goes back
  * to BTG rather than live.
  */
-export async function transitionListing(actor: Actor, id: string, to: "PAUSED" | "PUBLISHED" | "ARCHIVED") {
+export async function transitionListing(actor: Actor, id: string, to: "PAUSED" | "PUBLISHED" | "ARCHIVED", feeStatementHash?: string | null) {
   return prisma.$transaction(async (tx) => {
     const row = await ownListing(tx, actor, id);
     await assertMayCommit(tx, actor, "manage");
     if (to === "PUBLISHED") {
       if (row.state !== "PAUSED") throw new IllegalListingTransitionError(row.state as ListingState, "PUBLISHED");
-      return goLive(tx, actor, row, new Date());
+      const now = new Date();
+      await acceptListingFees(tx, actor, row, feeStatementHash, now);
+      return goLive(tx, actor, row, now);
     }
     /* 3S0-BE-03 — an archive is `listing.archive` whoever makes it (onboarding
        and the athlete's departure write the same name). Rows written before
