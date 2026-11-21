@@ -341,6 +341,28 @@
 }
 .sx-pw-pick[data-on] .sx-pw-pick-dot { border-color: var(--pick); background: var(--pick); color: var(--sx-bg); animation: sx-cw-pop 0.4s var(--cw-spring) both; }
 
+/* POL-FE-122: "Select everything" (a toggle) and "Clear", above the picks */
+.sx-pw-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+.sx-pw-bulk-btn {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 10px;
+  border: 1.5px solid color-mix(in srgb, var(--sx-athlete) 45%, var(--sx-line));
+  padding: 0 0.95rem;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--sx-athlete);
+  transition: color 0.2s, border-color 0.2s, background 0.25s, opacity 0.2s;
+}
+.sx-pw-bulk-btn:hover:not(:disabled) { border-color: var(--sx-athlete); background: color-mix(in srgb, var(--sx-athlete) 9%, transparent); }
+.sx-pw-bulk-btn:focus-visible { outline: 2px solid var(--sx-athlete); outline-offset: 2px; }
+.sx-pw-bulk-btn:disabled { cursor: not-allowed; opacity: 0.4; }
+.sx-pw-bulk-btn[data-on] { border-color: var(--sx-athlete); background: color-mix(in srgb, var(--sx-athlete) 13%, transparent); color: var(--sx-text); }
+.sx-pw-bulk-btn[data-on] .sx-pw-pick-dot { border-color: var(--sx-athlete); background: var(--sx-athlete); color: var(--sx-bg); }
+.sx-pw-bulk-note { flex-basis: 100%; font-size: 11.5px; line-height: 1.6; color: var(--sx-text-faint); }
+
 /* the agreement step: three numbered lines */
 .sx-pw-howto { display: grid; gap: 0.6rem; }
 .sx-pw-howto li {

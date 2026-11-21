@@ -39,21 +39,23 @@ import {
   tellApplicantIn,
 } from "./student-moves";
 import { autoDecideProspectIn, autoReviewStudentIn } from "./student-auto";
+import type { MastheadRole, ProspectRejectionReason } from "./student-vocabulary";
 
 /* Moved to student-moves.ts with the moves that throw them; re-exported where they always were. */
 export { ProspectDecisionError, StudentNotActiveError } from "./student-moves";
 
-export const MASTHEAD_ROLES = ["EDITOR", "WRITER", "PHOTOGRAPHER", "VIDEO", "DESIGNER", "SALES", "CORRESPONDENT"] as const;
-export type MastheadRole = (typeof MASTHEAD_ROLES)[number];
+/* POL-BE-123 — the two word lists moved to student-vocabulary.ts (no imports),
+   so the contract file the frontend imports stays free of the database;
+   re-exported where they always were. */
+export {
+  MASTHEAD_ROLES,
+  PROSPECT_REJECTION_REASONS,
+  type MastheadRole,
+  type ProspectRejectionReason,
+} from "./student-vocabulary";
 
 /* P9-SEC-01 — moved to student-categories.ts (pure, for the rules); re-exported where it always was. */
 export { NOT_FOR_STUDENTS } from "./student-categories";
-
-/** §5.6 Sponsor Acceptance Check — why SponsorX declined a prospect. */
-export const PROSPECT_REJECTION_REASONS = [
-  "CATEGORY_EXCLUSIVE", "SCHOOL_RESTRICTION", "ATHLETE_CONFLICT", "BRAND_SAFETY", "OTHER",
-] as const;
-export type ProspectRejectionReason = (typeof PROSPECT_REJECTION_REASONS)[number];
 
 /* ── errors ─────────────────────────────────────────────────────────────── */
 

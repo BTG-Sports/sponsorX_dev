@@ -47,10 +47,13 @@ import {
   profileComplete,
   publicFace,
   rowsFrom,
+  everythingSelected,
+  selectEverything,
   stepChanged,
   stepNeeds,
   wizardDone,
 } from "../src/lib/profile-wizard";
+import { BRAND_CATEGORIES, EVERYDAY_CATEGORIES, SENSITIVE_CATEGORIES } from "../src/lib/brand-categories";
 
 const profile = (over: Partial<ApiMyProfile> = {}): ApiMyProfile => ({
   id: "pw_ath_1",
@@ -165,6 +168,36 @@ describe("the public face", () => {
   });
 });
 
+/* POL-FE-122 — "Select everything" and "Clear" on the Brands step. */
+describe("Select everything on the Brands step", () => {
+  const sensitive = SENSITIVE_CATEGORIES as readonly string[];
+
+  it("picks every everyday kind and none of the six age-restricted ones", () => {
+    const next = selectEverything(BRAND_CATEGORIES, EVERYDAY_CATEGORIES, []);
+    expect(next).toEqual([...EVERYDAY_CATEGORIES]);
+    expect(next).toHaveLength(19);
+    expect(next.some((c) => sensitive.includes(c))).toBe(false);
+    expect(everythingSelected(EVERYDAY_CATEGORIES, next)).toBe(true);
+  });
+
+  it("keeps an age-restricted kind the athlete tapped themselves, in the list's order", () => {
+    const next = selectEverything(BRAND_CATEGORIES, EVERYDAY_CATEGORIES, ["NONPROFIT", "ALCOHOL"]);
+    expect(next[0]).toBe("ALCOHOL");
+    expect(next).toHaveLength(20);
+  });
+
+  it("pressed again, it removes every pick, age-restricted ones included", () => {
+    const all = selectEverything(BRAND_CATEGORIES, EVERYDAY_CATEGORIES, ["GAMBLING"]);
+    expect(selectEverything(BRAND_CATEGORIES, EVERYDAY_CATEGORIES, all)).toEqual([]);
+  });
+
+  it("is off until every everyday kind is picked", () => {
+    expect(everythingSelected(EVERYDAY_CATEGORIES, [])).toBe(false);
+    expect(everythingSelected(EVERYDAY_CATEGORIES, EVERYDAY_CATEGORIES.slice(1))).toBe(false);
+    expect(everythingSelected(EVERYDAY_CATEGORIES, [...sensitive])).toBe(false);
+  });
+});
+
 describe("the profile page", async () => {
   const { createElement } = await import("react");
   const { renderToStaticMarkup } = await import("react-dom/server");
@@ -209,6 +242,18 @@ describe("the profile page", async () => {
     expect(html).not.toContain("Full editor");
     expect(html).not.toContain('href="/athlete/profile/edit"');
     expect(html).toContain('href="/athlete/profile/edit?section=identity"');
+  });
+
+  it("POL-FE-122: the Brands step has Select everything and Clear; no other step does", async () => {
+    serve(profile({ socials: [], agreementsSigned: 0, brandInterests: [] }));
+    const html = await render();
+    const step = (k: string) => html.match(new RegExp(`<section[^>]*aria-labelledby="sx-pw-h-${k}"[\\s\\S]*?</section>`))?.[0] ?? "";
+    const brands = step("interests");
+    expect(brands).toContain('aria-pressed="false"');
+    expect(brands).toContain("Select everything");
+    expect(brands).toMatch(/<button[^>]*disabled=""[^>]*>Clear<\/button>/);
+    expect(brands).toContain("leaves out the age-restricted kinds");
+    expect(html.match(/Select everything<\/button>/g)).toHaveLength(1);
   });
 
   it("finished: the public page itself — no wizard, no Open public page, no sponsor-side button", async () => {

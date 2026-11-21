@@ -3612,3 +3612,33 @@ the blockers and today's content review findings.
   - **A seller's live listing:** an "Accept the fees" action (`POST /listings/{id}/accept-fees`) when `GET /listings/{id}` shows `feeAccepted` empty, or its hash differs from `feeStatementHash` (the rates changed). Without it, each order on that listing asks the seller first.
   - **The PDF:** the same box in the signed order's PDF.
   - **Then:** turn `FEE_STATEMENT_REQUIRED` on, staging first.
+
+### 121. The rules wording on Confirmations opens a quotation and never closes it, so it reads as cut off and testers try to scroll it [§9, P8-BE-02]
+`POL-FE-121` · *Polish* · confirmed · **Done 2026-11-21** (infinex1; #518 into main_development, #521 into main)
+- **Problem:** step 1 of `/athlete/confirmations` ("Your own rules") shows a large opening quotation mark and no closing one. On a PC the box looks unfinished, and testers took it for a box that should scroll. It doesn't scroll: it grows to fit the whole statement.
+- **Fix:** a matching closing mark bottom-right (`.sx-cw-quote::after`), with wider bottom padding so it sits under the last line on a phone.
+- **Checked:** step 2's agreement reader already scrolls, capped at `min(28rem, 55vh)`; a wheel on PC and a swipe on a phone both scroll it.
+- **Note:** first committed as `POL-FE-116`, a number taken the same day by item 116; renumbered.
+
+### 122. The Brands step has no "Select everything" or "Clear", so an athlete open to most brands taps 19 chips [§11, POL-FE-80]
+`POL-FE-122` · *Polish* · confirmed · **Code review** (infinex1, 2026-11-21)
+- **Problem:** "Brands you'd love" on `/athlete/profile` lists 25 kinds of brand, picked one at a time.
+- **Owner decision (2026-11-21):** "Select everything" leaves out the six age-restricted kinds (alcohol, tobacco and vape, cannabis, gambling, firearms, adult) for everyone. The step shows on the public page, a minor's included, so each of those stays a deliberate tap. Matching already never sends a minor an age-restricted brand.
+- **Built:**
+  - **"Select everything"**, a toggle: on, it adds the 19 everyday kinds and keeps anything else already picked; pressed again, it clears every pick. It shows as on while all 19 are picked.
+  - **"Clear"** clears every pick; disabled when nothing is picked.
+  - A note under the buttons says what Select everything leaves out.
+  - `SENSITIVE_CATEGORIES` and `EVERYDAY_CATEGORIES` in `frontend/src/lib/brand-categories.ts`; `backend/tests/brief-contract.test.ts` fails if the age-restricted list drifts from the backend's.
+
+### 123. The website hasn't deployed since 2026-11-20: its build fails on Railway, while CI passes [§30, P2-OPS-07]
+`POL-BE-123` · `POL-FE-123` · *Polish* · confirmed · **Code review** (rcfworks, 2026-11-21; both at the owner's request)
+- **Problem:** every web deploy since 53eb0356 (2026-11-20 19:47 UTC) failed on staging and production; both sites still serve e9bf9102. The api deployed each time, so the backend is current and the website isn't. Missed for a day because a deploy was read from the `release` branch, not from each service's build.
+- **Cause:** `frontend/tests/advisor-profile-live.test.ts` (POL-FE-103) imports `backend/src/contracts/student.ts`, which took two word lists from `domain/student.ts`, which loads the database client. `next build` type-checks the tests too (`tsconfig.json` includes `**/*.ts`). Railway's web build has no generated Prisma client, so it fails; CI generates it before building, so CI passes.
+- **Fix, backend (POL-BE-123):**
+  - `MASTHEAD_ROLES` and `PROSPECT_REJECTION_REASONS` move to `backend/src/domain/student-vocabulary.ts`, which imports nothing; `domain/student.ts` re-exports both.
+  - `backend/tests/frontend-imports-pure.static.test.ts`: every backend file the frontend imports (from `src` or `tests`) must not reach `backend/src/db/` or `backend/src/generated/`, type-only imports included. It names the chain when it fails.
+- **Fix, frontend (POL-FE-123):**
+  - `frontend/tsconfig.build.json` (the full config minus `tests/`), used by `next build` through `typescript.tsconfigPath` in `next.config.ts`. The website's build checks the app, not the tests.
+  - The tests are still type-checked: `npm run typecheck -w @sponsorx/frontend` (the full `tsconfig.json`), a new CI step after the web build.
+  - The stand-in for `domain/student` in `advisor-profile-live.test.ts` is gone; the test uses the real contract.
+- **Checked:** with `backend/src/generated` hidden, as on Railway, the old code fails with Railway's exact errors and the fixed code builds. Every CI step passes locally. A type error put in a test is caught by the new step.
