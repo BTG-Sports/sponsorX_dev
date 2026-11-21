@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { mayUse } from "../src/lib/admin-access";
 
 import {
   SIGNUP_BACKEND, SIGNUP_TABS, firstName, inTab, orgHref, orgState, signupBadge, signupTab, sponsorRows, kindBars, streamApiQuery, streamEmpty, streamParams, streamPatch, streamRowView, streamStats, tabCount, tabShows,
@@ -54,7 +55,7 @@ describe("words", () => {
 
 describe("organization rows (GET /onboarding/signups)", () => {
   it("open Group A's profile, and an approval BTG made by hand reads Approved by BTG", () => {
-    expect(orgHref("onb 1")).toBe("/admin/onboarding/onb%201");
+    expect(orgHref("onb 1")).toBe("/admin/new-signups/organizations/onb%201");
     expect(orgState({ state: "AUTO_APPROVED", autoApproved: true })).toBe("AUTO_APPROVED");
     expect(orgState({ state: "AUTO_APPROVED", autoApproved: false })).toBe("APPROVED");
     expect(signupBadge({ state: orgState({ state: "AUTO_APPROVED", autoApproved: false }) }).label).toBe("Approved by BTG");
@@ -102,11 +103,28 @@ describe("a stream row", () => {
     state: "AUTO_APPROVED", reasons: [], flags: [], ...over,
   });
 
+  it("waiting-on-them and declined rows (Onboarding and Sponsor requests folded in, 2026-11-21) are neither BTG's move nor approved", () => {
+    const w = streamRowView(row({ kind: "ORGANIZATION", id: "o2", state: "WAITING", reasons: ["Asked for changes"] }));
+    expect(w).toMatchObject({ held: false, reason: "Asked for changes", pill: { label: "Waiting on them", tone: "cyan", act: false } });
+    expect(streamRowView(row({ kind: "SPONSOR", id: "s2", state: "WAITING" })).reason).toBe("Nothing for BTG yet");
+    const d = streamRowView(row({ kind: "SPONSOR", id: "s3", state: "DECLINED" }));
+    expect(d).toMatchObject({ held: false, reason: "Declined by BTG", pill: { label: "Declined", tone: "muted", act: false } });
+  });
+
+  it("Sales opens New accounts and a sponsor's record, never an athlete's, guardian's or organization's, or the rules", () => {
+    expect(mayUse("/admin/new-signups", ["SALES"])).toBe(true);
+    expect(mayUse("/admin/new-signups/sponsors/s1", ["SALES"])).toBe(true);
+    for (const p of ["/admin/new-signups/athletes/a1", "/admin/new-signups/guardians/g1", "/admin/new-signups/organizations/o1", "/admin/new-signups/rules"]) {
+      expect(mayUse(p, ["SALES"]), p).toBe(false);
+      expect(mayUse(p, ["BTG_ADMIN"]), p).toBe(true);
+    }
+  });
+
   it("opens where each kind is reviewed", () => {
     expect(streamRowView(row({})).href).toBe("/admin/new-signups/athletes/a1");
     expect(streamRowView(row({ kind: "GUARDIAN", id: "g1" })).href).toBe("/admin/new-signups/guardians/g1");
-    expect(streamRowView(row({ kind: "ORGANIZATION", id: "o1" })).href).toBe("/admin/onboarding/o1");
-    expect(streamRowView(row({ kind: "SPONSOR", id: "s1" })).href).toBe("/admin/sponsor-requests/s1");
+    expect(streamRowView(row({ kind: "ORGANIZATION", id: "o1" })).href).toBe("/admin/new-signups/organizations/o1");
+    expect(streamRowView(row({ kind: "SPONSOR", id: "s1" })).href).toBe("/admin/new-signups/sponsors/s1");
   });
 
   it("says the desk's words, and holds what needs review", () => {

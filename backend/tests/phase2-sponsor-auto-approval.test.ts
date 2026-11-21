@@ -199,7 +199,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-17 · sponsors are approved automatically"
       expect(all).toContainEqual(expect.objectContaining({ template: "sponsor.accountOpened", to: "sa_dana@sa-test.invalid" }));
       const told = all.filter((m) => m.template === "sponsor.newSponsor");
       expect(told.map((m) => m.to).sort()).toEqual(["sa_admin@sa-test.invalid", "sa_sales@sa-test.invalid"]);
-      expect(told[0]!.data).toMatchObject({ businessName: "Harbor Coffee", outcome: "was approved automatically", reviewUrl: expect.stringMatching(new RegExp(`/admin/sponsor-requests/${harbor.id}$`)) });
+      expect(told[0]!.data).toMatchObject({ businessName: "Harbor Coffee", outcome: "was approved automatically", reviewUrl: expect.stringMatching(new RegExp(`/admin/new-signups/sponsors/${harbor.id}$`)) });
       const d = (await call("GET", `/sponsor-requests/${harbor.id}`, "sa_admin")).json;
       expect(d).toMatchObject({ autoApproved: true, businessType: "RESTAURANT", emailConfirmed: true, progress: { automatic: true, decidedBy: null, signedIn: true } });
       /* The first attempt never arrived (and its path was stripped); the second did. */

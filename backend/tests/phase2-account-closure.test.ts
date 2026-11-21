@@ -212,7 +212,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-13 · closing an account and coming back",
       expect(ask.json.requestedAt).toBeTruthy();
       const told = (await emails()).filter((m) => m.template === "account.reactivationRequested");
       expect(told.map((m) => m.to)).toEqual(["ac_admin@ac-test.invalid"]);
-      expect(told[0]!.data.reviewUrl).toMatch(/\/admin\/sponsor-requests\/ac_inq$/);
+      expect(told[0]!.data.reviewUrl).toMatch(/\/admin\/new-signups\/sponsors\/ac_inq$/);
       const list = await call("GET", "/account-closures?requested=true", "ac_admin");
       expect(list.json.closures.map((c: { subjectId: string }) => c.subjectId)).toEqual(["ac_cafe"]);
       expect((await call("GET", "/account-closures", "ac_riley")).status).toBe(403);

@@ -86,14 +86,23 @@ export type QueueCard = {
   /** The desk, possibly with a query or hash that opens the right tab —
    *  check access against `deskPath(href)`, never the whole string. */
   href: string;
+  /** The path to check access against when the desk's own path isn't enough:
+   *  New accounts opens to BTG admins and Sales, but its athlete,
+   *  organization and sensitive-edit queues are BTG admins' only. */
+  access?: string;
   chips: { text: string; tone: Tone }[];
 };
+
+/** What a role must be allowed to open for this card to show. */
+export function cardAccess(c: Pick<QueueCard, "href" | "access">): string {
+  return c.access ?? deskPath(c.href);
+}
 
 /* POL-FE-15 — every queue that waits on BTG is a card, each opening the
    desk (and tab) where the wait is cleared. Order here is the tie-break for
    the sort below: the loop's four first, then the rest as the API types
    them. A `hint` is one line on what the count is, not a figure. */
-const WAITING_QUEUES: ReadonlyArray<{ key: WaitingQueueKey; label: string; hint: string; href: string }> = [
+const WAITING_QUEUES: ReadonlyArray<{ key: WaitingQueueKey; label: string; hint: string; href: string; access?: string }> = [
   /* POL-FE-12 — a held payout used to be silent: the payee read "BTG reviews
      it next" and nobody at BTG was counting. The desk's Waiting tab is the
      held ones; its Failed tab is what the provider handed back. */
@@ -103,9 +112,9 @@ const WAITING_QUEUES: ReadonlyArray<{ key: WaitingQueueKey; label: string; hint:
   { key: "toActivate", label: "Athletes to activate", hint: "Approved, not active — not matchable yet", href: "/admin/applications?tab=approved" },
   { key: "payouts", label: "Payouts to review", hint: "Held for BTG, or failed and handed back", href: "/admin/payouts" },
   { key: "makeGoods", label: "Make-goods to decide", hint: "Open make-goods waiting for a person", href: "/admin/intelligence/make-goods" },
-  { key: "signups", label: "New sign-ups to review", hint: "Athletes, sponsors and organisations held for a person", href: "/admin/new-signups?review=1" },
-  { key: "organisations", label: "Organisations to review", hint: "Waiting for verification on Onboarding", href: "/admin/onboarding" },
-  { key: "sponsorRequests", label: "Sponsor requests", hint: "New requests nobody has answered", href: "/admin/sponsor-requests" },
+  { key: "signups", label: "New accounts to review", hint: "Athletes, sponsors and organisations held for a person", href: "/admin/new-signups?review=1", access: "/admin/new-signups/athletes" },
+  { key: "organisations", label: "Organisations to review", hint: "Waiting for verification in New accounts", href: "/admin/new-signups?review=1&kind=ORGANIZATION", access: "/admin/new-signups/organizations" },
+  { key: "sponsorRequests", label: "Sponsor requests", hint: "New requests nobody has answered", href: "/admin/new-signups?review=1&kind=SPONSOR", access: "/admin/new-signups/sponsors" },
   { key: "guardianHandoffs", label: "Guardian handoffs", hint: "Handed to BTG, or escalated after 7 days", href: "/admin/guardian-handoffs?tab=waiting" },
   { key: "heldListings", label: "Listings to approve", hint: "Marketplace listings held for approval", href: "/admin/marketplace?queue=listings" },
   { key: "heldOrders", label: "Orders to approve", hint: "Marketplace orders held for BTG, not the seller", href: "/admin/marketplace?queue=orders" },
@@ -117,7 +126,7 @@ const WAITING_QUEUES: ReadonlyArray<{ key: WaitingQueueKey; label: string; hint:
   { key: "reactivations", label: "Reactivation requests", hint: "Closed accounts asking to come back", href: "/admin/closed-accounts" },
   { key: "paymentDisputes", label: "Payment disputes", hint: "Open with the payment provider", href: "/admin/payments/disputes" },
   { key: "paymentEvents", label: "Payment events for BTG", hint: "Held or failed, not yet resolved", href: "/admin/payments/events" },
-  { key: "profileChanges", label: "ID and name changes", hint: "Sensitive edits BTG must answer", href: "/admin/new-signups#sensitive-edits" },
+  { key: "profileChanges", label: "ID and name changes", hint: "Sensitive edits BTG must answer", href: "/admin/new-signups#sensitive-edits", access: "/admin/new-signups/athletes" },
   /* P8-BE-12 — cancels and changes the automatic path held for a person. */
   { key: "campaignRequests", label: "Campaign requests", hint: "Cancels and changes held for BTG", href: "/admin/campaign-requests" },
 ];

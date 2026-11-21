@@ -41,6 +41,9 @@ export async function decideSponsorRequestAction(id: string, input: DecisionInpu
   }
   revalidatePath("/admin/sponsor-requests");
   revalidatePath(`/admin/sponsor-requests/${id}`);
+  /* the same record, opened from New sign-ups */
+  revalidatePath("/admin/new-signups");
+  revalidatePath(`/admin/new-signups/sponsors/${id}`);
   /* A Reject or Reinstate opens or ends the sponsor's closure on the Closed accounts desk. */
   if (input.decision === "REJECT" || input.decision === "REINSTATE") revalidatePath("/admin/closed-accounts", "layout");
   if (!res.ok) return requestRefusal(res.status, body);
@@ -101,6 +104,9 @@ export async function sendBackSponsorDocumentAction(id: string, documentId: stri
   }
   revalidatePath("/admin/sponsor-requests");
   revalidatePath(`/admin/sponsor-requests/${id}`);
+  /* the same record, opened from New sign-ups */
+  revalidatePath("/admin/new-signups");
+  revalidatePath(`/admin/new-signups/sponsors/${id}`);
   if (!res.ok) return { ok: false, status: res.status, message: sendBackRefusal(res.status, body) };
   return { ok: true };
 }

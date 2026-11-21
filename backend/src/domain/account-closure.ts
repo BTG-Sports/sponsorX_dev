@@ -860,7 +860,7 @@ async function reviewPathFor(db: Db, c: { tenantId: string; subjectKind: string;
     const inq =
       (await db.inquiry.findFirst({ where: { tenantId: c.tenantId, sponsorId: c.subjectId, state: "REJECTED" }, select: { id: true }, orderBy: { createdAt: "desc" } })) ??
       (await db.inquiry.findFirst({ where: { tenantId: c.tenantId, sponsorId: c.subjectId }, select: { id: true }, orderBy: { createdAt: "desc" } }));
-    if (inq) return `/admin/sponsor-requests/${inq.id}`;
+    if (inq) return `/admin/new-signups/sponsors/${inq.id}`;
   }
   /* Where Reinstate is: the athlete's and guardian's profiles on New sign-ups (2S1-BE-09 / -10), the organisation's profile (2S1-BE-06). */
   if (c.subjectKind === "ATHLETE") return `/admin/new-signups/athletes/${c.subjectId}`;
@@ -870,10 +870,10 @@ async function reviewPathFor(db: Db, c: { tenantId: string; subjectKind: string;
       /* tenant-scope: the onboarding that provisioned this closure's own property (it lives in its operator's tenant). */
       where: { propertyId: c.subjectId }, select: { id: true },
     });
-    if (onb) return `/admin/onboarding/${onb.id}`;
+    if (onb) return `/admin/new-signups/organizations/${onb.id}`;
   }
-  if (c.subjectKind === "ONBOARDING") return `/admin/onboarding/${c.subjectId}`;
-  if (c.subjectKind === "INQUIRY") return `/admin/sponsor-requests/${c.subjectId}`;
+  if (c.subjectKind === "ONBOARDING") return `/admin/new-signups/organizations/${c.subjectId}`;
+  if (c.subjectKind === "INQUIRY") return `/admin/new-signups/sponsors/${c.subjectId}`;
   return "/admin/new-signups?tab=review";
 }
 

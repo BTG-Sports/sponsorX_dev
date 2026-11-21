@@ -24,10 +24,20 @@
  * Staying in Prisma keeps every read under `whereFor` (P8-SEC-02's static
  * test); a UNION in raw SQL would have stepped outside it.
  *
- * WHO SEES WHAT — no more than today. The stream needs what /signups needs
- * (tenant-wide athlete approve and guardian write); the sponsor sources join
- * only for a role that reads inquiries tenant-wide, the organisation source
- * only for one that reads onboardings tenant-wide.
+ * WHO SEES WHAT — no more than each kind's own endpoint allows. Each kind
+ * joins only for a role that reads it tenant-wide: athletes for athlete
+ * approve, guardians for guardian write (what /signups needs), sponsors for
+ * inquiry read, organisations for onboarding read. A role that reads none
+ * gets the same 403 as before. So Sales, which reads inquiries but no
+ * athlete or guardian, gets a sponsors-only stream.
+ *
+ * EVERY STATE (the one intake page, 2026-11-21). The owner removed the
+ * Onboarding and Sponsor requests desks: this stream is now the only list
+ * of organisations and sponsors, so it carries every state they can be in —
+ * a sponsor request still being finished or declined, an organisation asked
+ * for changes or never submitted — not only what SponsorX approved or held.
+ * Those are WAITING (theirs to finish) or DECLINED; `held` and Needs review
+ * still mean BTG's move only.
  */
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
@@ -43,7 +53,8 @@ import { mergeNewest, STREAM_KINDS, type StreamKey, type StreamKind } from "./si
 import type { Problem } from "./hold-problems";
 
 export type { StreamKind } from "./signups-stream-rules";
-export type StreamState = "AUTO_APPROVED" | "APPROVED" | "NEEDS_REVIEW" | "REJECTED";
+/** WAITING: with the applicant, not BTG (unfinished, asked for changes, a draft). DECLINED: a sponsor request BTG turned down. */
+export type StreamState = "AUTO_APPROVED" | "APPROVED" | "NEEDS_REVIEW" | "WAITING" | "REJECTED" | "DECLINED";
 
 export type StreamFilter = { kind?: StreamKind; review?: boolean; q?: string };
 
@@ -85,13 +96,17 @@ function tenantWide(actor: Actor, resource: Parameters<typeof assertTenantWide>[
   }
 }
 
-/** Which kinds this actor's stream holds. Throws (403) where /signups would. */
+/** Which kinds this actor's stream holds: each one it reads tenant-wide. Throws (403) when it reads none. */
 function kindsFor(actor: Actor): StreamKind[] {
-  assertTenantWide(actor, "athleteApplication", "approve");
-  assertTenantWide(actor, "guardian", "write");
-  return STREAM_KINDS.filter((k) =>
-    k === "SPONSOR" ? tenantWide(actor, "inquiry", "read") : k === "ORGANIZATION" ? tenantWide(actor, "propertyOnboarding", "read") : true,
+  const kinds = STREAM_KINDS.filter((k) =>
+    k === "ATHLETE" ? tenantWide(actor, "athleteApplication", "approve")
+    : k === "GUARDIAN" ? tenantWide(actor, "guardian", "write")
+    : k === "SPONSOR" ? tenantWide(actor, "inquiry", "read")
+    : tenantWide(actor, "propertyOnboarding", "read"),
   );
+  /* the same refusal, in the same shape, as before */
+  if (kinds.length === 0) assertTenantWide(actor, "athleteApplication", "approve");
+  return kinds;
 }
 
 function athleteWhere(actor: Actor, f: StreamFilter): Prisma.AthleteWhereInput {
@@ -112,24 +127,42 @@ function guardianWhere(actor: Actor, f: StreamFilter, verified: boolean): Prisma
   return { AND: and };
 }
 
-function inquiryWhere(actor: Actor, f: StreamFilter, held: boolean): Prisma.InquiryWhereInput {
+/** held: waiting for BTG (reasons recorded) · waiting: NEW and not finished by them · decided: approved, declined or rejected. */
+type InquirySource = "held" | "waiting" | "decided";
+
+function inquiryWhere(actor: Actor, f: StreamFilter, source: InquirySource): Prisma.InquiryWhereInput {
   const and: Prisma.InquiryWhereInput[] = [
     whereFor(actor, "inquiry", "read"),
-    held ? { state: "NEW", reviewReasons: { isEmpty: false } } : { state: "APPROVED" },
+    source === "held" ? { state: "NEW", reviewReasons: { isEmpty: false } }
+    : source === "waiting" ? { state: "NEW", reviewReasons: { isEmpty: true } }
+    : { state: { in: ["APPROVED", "DECLINED", "REJECTED"] } },
   ];
-  if (f.review && !held) and.push({ id: { in: [] } });
+  if (f.review && source !== "held") and.push({ id: { in: [] } });
   if (f.q) and.push({ OR: [{ companyName: contains(f.q) }, { firstName: contains(f.q) }, { lastName: contains(f.q) }, { email: contains(f.q) }] });
   return { AND: and };
 }
 
-const ORG_ON_DESK = ["PENDING_REVIEW", "APPROVED", "SUSPENDED", "REJECTED"] as const;
-
-function organizationWhere(actor: Actor, f: StreamFilter): Prisma.PropertyOnboardingWhereInput {
-  const and: Prisma.PropertyOnboardingWhereInput[] = [whereFor(actor, "propertyOnboarding", "read"), { state: { in: [...ORG_ON_DESK] } }];
-  /* onboarding-profile.ts signupStateOf: held unless rejected — waiting, suspended, or flagged after approval. */
-  if (f.review) and.push({ state: { not: "REJECTED" }, OR: [{ state: { in: ["PENDING_REVIEW", "SUSPENDED"] } }, { flags: { isEmpty: false } }] });
+/** Every state is listed; `drafts` splits the never-submitted ones off so they can be dated by when they were started. */
+function organizationWhere(actor: Actor, f: StreamFilter, drafts = false): Prisma.PropertyOnboardingWhereInput {
+  const and: Prisma.PropertyOnboardingWhereInput[] = [whereFor(actor, "propertyOnboarding", "read"), { submittedAt: drafts ? null : { not: null } }];
+  /* onboarding-profile.ts signupStateOf: held unless rejected — waiting, suspended, or flagged after approval. A draft or an
+     application sent back for changes is with the applicant, never BTG's move. */
+  if (f.review) {
+    and.push({
+      state: { notIn: ["REJECTED", "DRAFT", "CHANGES_REQUESTED"] },
+      OR: [{ state: { in: ["PENDING_REVIEW", "SUSPENDED"] } }, { flags: { isEmpty: false } }],
+    });
+  }
   if (f.q) and.push({ orgName: contains(f.q) });
   return { AND: and };
+}
+
+/** A sponsor request still with them: what they haven't done, from what the row records (the upload is the rest). */
+function sponsorWaitingFor(i: { emailConfirmedAt: Date | null; businessType: string | null; businessTypeOther: string | null }): string[] {
+  const out: string[] = [];
+  if (!i.emailConfirmedAt) out.push("Hasn’t confirmed their email yet");
+  if (!i.businessType || (i.businessType === "OTHER" && !i.businessTypeOther?.trim())) out.push("Hasn’t told us their business type yet");
+  return out.length ? out : ["Waiting for their proof of business"];
 }
 
 function sources(actor: Actor, f: StreamFilter): Source[] {
@@ -162,30 +195,37 @@ function sources(actor: Actor, f: StreamFilter): Source[] {
     }
   }
   if (kinds.includes("SPONSOR")) {
-    for (const held of [false, true]) {
-      const where = inquiryWhere(actor, f, held);
+    const SPONSOR_SOURCES = [["decided", "sponsorApproved"], ["held", "sponsorHeld"], ["waiting", "sponsorWaiting"]] as const;
+    for (const [source, key] of SPONSOR_SOURCES) {
+      const where = inquiryWhere(actor, f, source);
+      const byDecision = source === "decided";
       all.push({
-        key: held ? "sponsorHeld" : "sponsorApproved", kind: "SPONSOR",
+        key, kind: "SPONSOR",
         count: () => prisma.inquiry.count({ where /* tenant-scope: inquiryWhere starts with whereFor */ }),
         keys: async (n) => (await prisma.inquiry.findMany({
           where, /* tenant-scope: inquiryWhere starts with whereFor */
           select: { id: true, createdAt: true, decidedAt: true },
-          orderBy: held ? [{ createdAt: "desc" }, { id: "desc" }] : [{ decidedAt: { sort: "desc", nulls: "last" } }, { id: "desc" }],
+          orderBy: byDecision ? [{ decidedAt: { sort: "desc", nulls: "last" } }, { id: "desc" }] : [{ createdAt: "desc" }, { id: "desc" }],
           take: n,
-        })).map((r) => ({ source: held ? "sponsorHeld" : "sponsorApproved", kind: "SPONSOR", id: r.id, at: held ? r.createdAt : r.decidedAt ?? EPOCH })),
+        })).map((r) => ({ source: key, kind: "SPONSOR", id: r.id, at: byDecision ? r.decidedAt ?? EPOCH : r.createdAt })),
       });
     }
   }
   if (kinds.includes("ORGANIZATION")) {
-    const where = organizationWhere(actor, f);
-    all.push({
-      key: "organization", kind: "ORGANIZATION",
-      count: () => prisma.propertyOnboarding.count({ where /* tenant-scope: organizationWhere starts with whereFor */ }),
-      keys: async (n) => (await prisma.propertyOnboarding.findMany({
-        where, /* tenant-scope: organizationWhere starts with whereFor */
-        select: { id: true, submittedAt: true }, orderBy: [{ submittedAt: { sort: "desc", nulls: "last" } }, { id: "desc" }], take: n,
-      })).map((r) => ({ source: "organization", kind: "ORGANIZATION", id: r.id, at: r.submittedAt ?? EPOCH })),
-    });
+    for (const drafts of [false, true]) {
+      const where = organizationWhere(actor, f, drafts);
+      const key = drafts ? "organizationDraft" : "organization";
+      all.push({
+        key, kind: "ORGANIZATION",
+        count: () => prisma.propertyOnboarding.count({ where /* tenant-scope: organizationWhere starts with whereFor */ }),
+        keys: async (n) => (await prisma.propertyOnboarding.findMany({
+          where, /* tenant-scope: organizationWhere starts with whereFor */
+          select: { id: true, submittedAt: true, createdAt: true },
+          orderBy: drafts ? [{ createdAt: "desc" }, { id: "desc" }] : [{ submittedAt: { sort: "desc", nulls: "last" } }, { id: "desc" }],
+          take: n,
+        })).map((r) => ({ source: key, kind: "ORGANIZATION", id: r.id, at: drafts ? r.createdAt : r.submittedAt ?? EPOCH })),
+      });
+    }
   }
   return all;
 }
@@ -220,19 +260,33 @@ async function rowsFor(actor: Actor, keys: StreamKey[]): Promise<StreamRow[]> {
   }
   for (const i of inquiries) {
     const s = sponsorSummary(i);
-    const held = s.state === "NEW";
+    const fresh = s.state === "NEW";
+    const note = i.decisionNote?.trim();
+    const [state, reasons]: [StreamState, string[]] =
+      fresh ? (s.reviewReasons.length ? ["NEEDS_REVIEW", s.reviewReasons] : ["WAITING", sponsorWaitingFor(i)])
+      : s.state === "DECLINED" ? ["DECLINED", [note || "Declined by BTG"]]
+      : s.state === "REJECTED" ? ["REJECTED", [note || "Rejected by BTG — logins off"]]
+      : [s.autoApproved ? "AUTO_APPROVED" : "APPROVED", []];
     byId.set(`SPONSOR:${i.id}`, {
       kind: "SPONSOR", id: s.id, name: s.businessName, sub: s.contactName,
-      signedUpAt: held ? s.createdAt : s.decidedAt ?? s.createdAt,
-      state: held ? "NEEDS_REVIEW" : s.autoApproved ? "AUTO_APPROVED" : "APPROVED",
-      reasons: held ? s.reviewReasons : [], flags: [], problems: s.problems,
+      signedUpAt: fresh ? s.createdAt : s.decidedAt ?? s.createdAt,
+      state, reasons, flags: [], problems: s.problems,
     });
   }
   for (const o of orgs) {
     const r = organizationRow(o);
+    /* With the applicant: sent back for changes, or never submitted. signupStateOf doesn't know these (its desk never listed them). */
+    const notes = o.reviewNotes?.trim();
+    const waiting: string[] | null =
+      o.state === "CHANGES_REQUESTED" ? [notes ? `Asked for changes: ${notes}` : "Asked for changes"]
+      : o.state === "DRAFT" ? ["Not submitted yet"]
+      : null;
     /* The organisation desk's "approved" covers BTG's hand approvals too; the stream tells them apart. */
-    const state: StreamState = r.state === "AUTO_APPROVED" && !r.autoApproved ? "APPROVED" : r.state;
-    byId.set(`ORGANIZATION:${o.id}`, { kind: "ORGANIZATION", id: r.id, name: r.name, sub: r.sub, signedUpAt: r.signedUpAt, state, reasons: r.reasons, flags: [], problems: r.problems });
+    const state: StreamState = waiting ? "WAITING" : r.state === "AUTO_APPROVED" && !r.autoApproved ? "APPROVED" : r.state;
+    byId.set(`ORGANIZATION:${o.id}`, {
+      kind: "ORGANIZATION", id: r.id, name: r.name, sub: r.sub, signedUpAt: r.signedUpAt, state,
+      reasons: waiting ?? r.reasons, flags: [], problems: waiting ? [] : r.problems,
+    });
   }
   /* A row that vanished between the key read and this one (deleted, rescoped) is skipped, not invented. */
   return keys.map((k) => byId.get(`${k.kind}:${k.id}`)).filter((r): r is StreamRow => Boolean(r));
@@ -281,21 +335,23 @@ export async function signupStreamSummary(actor: Actor): Promise<{ kinds: Partia
       return [kind, { total: v + r, held: 0, auto }];
     }
     if (kind === "SPONSOR") {
-      const [approved, h, auto] = await Promise.all([
-        prisma.inquiry.count({ where: inquiryWhere(actor, none, false) /* tenant-scope: inquiryWhere starts with whereFor */ }),
-        prisma.inquiry.count({ where: inquiryWhere(actor, none, true) /* tenant-scope: inquiryWhere starts with whereFor */ }),
-        prisma.inquiry.count({ where: { AND: [inquiryWhere(actor, none, false), { autoApproved: true }] } /* tenant-scope: inquiryWhere starts with whereFor */ }),
+      const [decided, h, waiting, auto] = await Promise.all([
+        prisma.inquiry.count({ where: inquiryWhere(actor, none, "decided") /* tenant-scope: inquiryWhere starts with whereFor */ }),
+        prisma.inquiry.count({ where: inquiryWhere(actor, none, "held") /* tenant-scope: inquiryWhere starts with whereFor */ }),
+        prisma.inquiry.count({ where: inquiryWhere(actor, none, "waiting") /* tenant-scope: inquiryWhere starts with whereFor */ }),
+        prisma.inquiry.count({ where: { AND: [inquiryWhere(actor, none, "decided"), { state: "APPROVED", autoApproved: true }] } /* tenant-scope: inquiryWhere starts with whereFor */ }),
       ]);
-      return [kind, { total: approved + h, held: h, auto }];
+      return [kind, { total: decided + h + waiting, held: h, auto }];
     }
-    const [total, h, auto] = await Promise.all([
+    const [submitted, drafts, h, auto] = await Promise.all([
       prisma.propertyOnboarding.count({ where: organizationWhere(actor, none) /* tenant-scope: organizationWhere starts with whereFor */ }),
+      prisma.propertyOnboarding.count({ where: organizationWhere(actor, none, true) /* tenant-scope: organizationWhere starts with whereFor */ }),
       prisma.propertyOnboarding.count({ where: organizationWhere(actor, held) /* tenant-scope: organizationWhere starts with whereFor */ }),
       prisma.propertyOnboarding.count({
         where: { AND: [organizationWhere(actor, none), { state: "APPROVED", flags: { isEmpty: true }, autoApproved: true }] }, /* tenant-scope: organizationWhere starts with whereFor */
       }),
     ]);
-    return [kind, { total, held: h, auto }];
+    return [kind, { total: submitted + drafts, held: h, auto }];
   }));
 
   const out = Object.fromEntries(per) as Partial<Record<StreamKind, KindSummary>>;
@@ -324,8 +380,8 @@ export async function signupsHeld(actor: Actor): Promise<{ waiting: number; olde
     ]),
     kinds.includes("SPONSOR")
       ? Promise.all([
-          prisma.inquiry.count({ where: inquiryWhere(actor, held, true) /* tenant-scope: inquiryWhere starts with whereFor */ }),
-          prisma.inquiry.findFirst({ where: inquiryWhere(actor, held, true) /* tenant-scope: inquiryWhere starts with whereFor */, orderBy: { createdAt: "asc" }, select: { createdAt: true } }).then((r) => r?.createdAt ?? null),
+          prisma.inquiry.count({ where: inquiryWhere(actor, held, "held") /* tenant-scope: inquiryWhere starts with whereFor */ }),
+          prisma.inquiry.findFirst({ where: inquiryWhere(actor, held, "held") /* tenant-scope: inquiryWhere starts with whereFor */, orderBy: { createdAt: "asc" }, select: { createdAt: true } }).then((r) => r?.createdAt ?? null),
         ])
       : none,
     kinds.includes("ORGANIZATION")

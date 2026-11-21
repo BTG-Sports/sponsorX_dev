@@ -231,7 +231,7 @@ describe.skipIf(!hasDatabase)("organisations over the API", async () => {
       const review = (await outbox()).filter((e) => e.template === "onboarding.newOrganization" && e.data.orgName === "OA Valley Rovers");
       expect(review).toHaveLength(1);
       expect(review[0]).toMatchObject({ to: "admin@oa.invalid" });
-      expect(review[0]!.data.profileUrl).toMatch(new RegExp(`/admin/onboarding/${a.id}$`));
+      expect(review[0]!.data.profileUrl).toMatch(new RegExp(`/admin/new-signups/organizations/${a.id}$`));
 
       /* While it waits, the applicant fixes it: the last paper, then the email link. */
       await upload(a.tok, "RIGHTS_PROOF");
@@ -469,7 +469,7 @@ describe.skipIf(!hasDatabase)("organisations over the API", async () => {
       expect(old.replacedAt).not.toBeNull(); // kept, not deleted
       const told = (await outbox()).filter((e) => e.template === "onboarding.documentChanged" && e.data.orgName === "OA Paperwork FC");
       expect(told).toEqual([expect.objectContaining({ to: "admin@oa.invalid", data: expect.objectContaining({ change: "replaced a document", flagged: "" }) })]);
-      expect(told[0]!.data.profileUrl).toMatch(new RegExp(`/admin/onboarding/${a.id}$`));
+      expect(told[0]!.data.profileUrl).toMatch(new RegExp(`/admin/new-signups/organizations/${a.id}$`));
 
       /* Remove the rights proof without a replacement: flagged for BTG, listings stay live. */
       const rights = after.json.documents.find((d: { kind: string }) => d.kind === "RIGHTS_PROOF");

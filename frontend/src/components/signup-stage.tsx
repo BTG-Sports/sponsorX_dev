@@ -1,5 +1,6 @@
 /* --------------------------------------------------------------------------
-   New sign-ups — the page's header and status cards (POL-FE-109, 2026-11-17),
+   New accounts (was "New sign-ups"; Onboarding and Sponsor requests were
+   folded in on 2026-11-21) — the page's header and status cards (POL-FE-109, 2026-11-17),
    on the admin shell's Mission Control stage. Server components; the list
    under them is the SignupsDesk client island (signups-desk.tsx).
 
@@ -32,11 +33,11 @@ const at = (seconds: number, extra?: CSSProperties) => ({ "--d": `${seconds}s`, 
 /* ----------------------------------------------------------------- header */
 
 /** `readAt` null: nothing was read (a demo state), so no live pill. */
-export function SignupsHeader({ readAt }: { readAt: string | null }) {
+export function SignupsHeader({ readAt, rules = true }: { readAt: string | null; /** Sign-up rules is BTG admins only: Sales doesn't get the link. */ rules?: boolean }) {
   return (
     <header>
       <div className="sx-ap-rise flex flex-wrap items-center justify-between gap-3" style={at(0.02)}>
-        <h1 className="sx-page-title">New sign-ups</h1>
+        <h1 className="sx-page-title">New accounts</h1>
         <div className="flex flex-wrap items-center gap-2">
           {readAt && (
             <span className="sx-ap-live">
@@ -45,15 +46,16 @@ export function SignupsHeader({ readAt }: { readAt: string | null }) {
             </span>
           )}
           <SignupsHowItWorks />
-          <Link href="/admin/new-signups/rules" className="sx-su-rules">
+          {rules && (<Link href="/admin/new-signups/rules" className="sx-su-rules">
             Sign-up rules
             <Glyph ui="arrow" className="size-3.5" />
-          </Link>
+          </Link>)}
         </div>
       </div>
       <p className="sx-ap-rise mt-2 max-w-2xl text-sm leading-relaxed text-[#9aa4b2]" style={at(0.06)}>
-        Everyone who joins is checked and approved automatically. You only step in for the few held
-        under <strong className="font-semibold text-[#fdba74]">Needs review</strong>.
+        Every new athlete, guardian, organization and sponsor, in one place. Most are checked and
+        approved automatically. You only step in for the few held under{" "}
+        <strong className="font-semibold text-[#fdba74]">Needs review</strong>.
       </p>
     </header>
   );

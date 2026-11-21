@@ -48,6 +48,12 @@ export type DecideChoice = {
   kind: "go" | "ask" | "stop";
   /** Why it can't be taken right now; the card is greyed and says this. */
   locked?: string;
+  /** Shown once it is picked, first: anything more to choose before it can go
+   *  (a sponsor's business type). The caller owns that state. */
+  extra?: ReactNode;
+  /** Why the final button is off right now, though the choice is open (a
+   *  business type isn't picked yet). Said in the footer. */
+  blocked?: string | null;
   /** Shown once it is picked, above the note: what to know first. */
   warning?: ReactNode;
   /** A note box: required or optional. Absent = no note for this choice. */
@@ -120,7 +126,8 @@ function DecideDialog({ title, lede, choices, submit, onClose, onDone }: {
 
   const choice = choices.find((c) => c.key === picked) ?? null;
   const needNote = choice?.note?.need === "required";
-  const ready = choice !== null && (!needNote || note.trim().length > 0);
+  const blocked = choice?.blocked ?? null;
+  const ready = choice !== null && !blocked && (!needNote || note.trim().length > 0);
 
   const go = () => {
     if (!choice || !ready) return;
@@ -183,8 +190,9 @@ function DecideDialog({ title, lede, choices, submit, onClose, onDone }: {
             ))}
           </div>
 
-          {choice && (choice.warning || choice.note) && (
+          {choice && (choice.extra || choice.warning || choice.note) && (
             <div className="sx-rec-more" key={choice.key}>
+              {choice.extra}
               {choice.warning && <div role="note" className="sx-rec-warn">{choice.warning}</div>}
               {choice.note && (
                 <label className="sx-rec-label">
@@ -206,7 +214,7 @@ function DecideDialog({ title, lede, choices, submit, onClose, onDone }: {
 
         <div className="sx-ap-sheet-foot sx-rec-sheet-foot">
           <p className="sx-rec-why" aria-live="polite">
-            {!choice ? "Pick one above. Nothing is saved until you press the button." : !ready ? "Write it first. It is emailed to them as you wrote it." : "Nothing is saved until you press the button."}
+            {!choice ? "Pick one above. Nothing is saved until you press the button." : blocked ? blocked : !ready ? "Write it first. It is emailed to them as you wrote it." : "Nothing is saved until you press the button."}
           </p>
           <button type="button" onClick={onClose} disabled={pending} className="sx-rec-btn sx-rec-btn-sm" data-kind="quiet">
             Cancel

@@ -20,7 +20,7 @@ import {
   BOARD_REVIEWS,
   QUEUE_TONE,
   campaignLines,
-  deskPath,
+  cardAccess,
   healthRows,
   queueCards,
   queuesWaiting,
@@ -113,7 +113,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
 
   /* A queue the role can READ but whose desk isn't theirs (C-1) isn't a
      row: each row opens the page it counts. */
-  const cards = board ? queueCards(board.queues).filter((c) => mayUse(deskPath(c.href), actor.roles)) : [];
+  const cards = board ? queueCards(board.queues).filter((c) => mayUse(cardAccess(c), actor.roles)) : [];
   const hasQueues = cards.length > 0;
   /* POL-FE-15 — queues with work, never a sum of items (an item can sit on two desks). */
   const waiting = queuesWaiting(cards);

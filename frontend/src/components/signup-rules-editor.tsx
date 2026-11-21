@@ -1,24 +1,30 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, type CSSProperties } from "react";
 
 import { setSignupFlagAction, type RuleResult } from "@/app/(app)/admin/new-signups/rules/actions";
+import { Glyph, type UiGlyph } from "@/components/athlete-inventory/glyphs";
 import type { SignupFlag } from "@/lib/signup-flags";
 
 /* --------------------------------------------------------------------------
-   2S1-FE-07 — the sign-up rules' controls (2S1-BE-10 / -12). Every change is
+   2S1-FE-07 — the sign-up rules' switches (2S1-BE-10 / -12). Every change is
    the API's to accept (BTG admin only) and audit; the page re-reads after
    each.
 
-   P1-ART-17 (the Control Panel): each rule is a designed switch
-   (`role="switch"`, not a native checkbox) over an Off / On pair that
-   spells out both behaviours, the current one lit. The age table's form and
-   grid live in rules-board.tsx.
+   Redrawn 2026-11-21 (owner: "too much information at once … not easily
+   understandable"). Each switch is a RuleCard: one question-like title, the
+   switch, and a three-step PATH — where a sign-up or a deal starts, the gate
+   this rule controls, where it ends. On, a runner travels the path and stops
+   at the lit gate (a person, or a confirmation, is waited for); off, the gate
+   is crossed out and the runner goes straight through. Under it, what
+   happens NOW in one sentence, and the other way in a quieter line — the old
+   Off / On box pair said the same thing twice as loud. Styles: `.sx-sr-*` in
+   admin/new-signups/rules/rules.css.
 
-   P8-FE-04 / P8-FE-07 — FlagSwitch is the switch for any of the three
-   settings flags; StaffConfirmSwitch stays as the minors one. The two
-   confirmation switches (rules, Content Collaboration Agreement) are
-   FlagSwitch with their own words.
+   P8-FE-04 / P8-FE-07 — the same card draws all three settings flags: staff
+   confirm minors, athletes confirm their own rules, athletes accept the
+   current Content Collaboration Agreement. The age table lives in
+   rules-board.tsx.
    -------------------------------------------------------------------------- */
 
 export function useRun() {
@@ -50,97 +56,140 @@ export function Said({ r }: { r: RuleResult | null }) {
 }
 
 export type FlagWords = {
+  /** The chapter tag over the title: "Minors", "Before a deal". */
+  tag: string;
+  icon: UiGlyph;
   label: string;
-  /** The one-line state under the label. */
-  state: { on: string; off: string };
-  /** The Off / On pair that spells out both behaviours. */
+  /** What happens with the switch off / on — one sentence each. */
   off: string;
   on: string;
+  /** The path: where it starts, the gate this rule controls, where it ends. */
+  path: { start: string; gate: string; end: string; startIcon: UiGlyph; gateIcon: UiGlyph };
+  /** The badge for each state. */
+  badge: { on: string; off: string };
 };
 
 export const STAFF_CONFIRM_WORDS: FlagWords = {
+  tag: "Minors",
+  icon: "users",
   label: "BTG staff confirm minors before approval",
-  state: { on: "On — a person at BTG decides each complete minor.", off: "Off — the checks decide." },
   off: "A minor and their guardian are approved once every check passes.",
   on: "A complete minor waits under Needs review for a person.",
+  path: { start: "Minor signs up", gate: "A person checks", end: "Approved", startIcon: "users", gateIcon: "eye" },
+  badge: { on: "A person decides", off: "Automatic" },
 };
 
 export const RULES_REQUIRED_WORDS: FlagWords = {
+  tag: "Before a deal",
+  icon: "school",
   label: "Athletes confirm their own rules",
-  state: { on: "On — a new deal or listing waits for a confirmation that counts.", off: "Off — asked, not enforced." },
   off: "Asked on sign-up and in the portal; not enforced.",
   on: "Accepting a deal or listing an item waits until a confirmation that counts is on file — for a minor, the guardian's.",
+  path: { start: "Deal or listing", gate: "Rules confirmed", end: "Goes ahead", startIcon: "tag", gateIcon: "school" },
+  badge: { on: "Enforced", off: "Asked, not enforced" },
 };
 
 export const COLLAB_REQUIRED_WORDS: FlagWords = {
+  tag: "Before a deal",
+  icon: "shield",
   label: "Athletes accept the current Content Collaboration Agreement",
-  state: { on: "On — a new deal or listing waits for the current agreement.", off: "Off — asked, not enforced." },
   off: "Asked on sign-up and in the portal; not enforced.",
   on: "Accepting a deal or listing an item waits until the current agreement is accepted — for a minor, by the guardian.",
+  path: { start: "Deal or listing", gate: "Agreement accepted", end: "Goes ahead", startIcon: "tag", gateIcon: "shield" },
+  badge: { on: "Enforced", off: "Asked, not enforced" },
 };
 
-export function StaffConfirmSwitch({ on }: { on: boolean }) {
-  return <FlagSwitch flag="staffConfirmMinors" on={on} words={STAFF_CONFIRM_WORDS} />;
-}
-
-export function FlagSwitch({ flag, on, words }: { flag: SignupFlag; on: boolean; words: FlagWords }) {
+export function RuleCard({ flag, on, words, delay = 0 }: { flag: SignupFlag; on: boolean; words: FlagWords; delay?: number }) {
   const { result, pending, run } = useRun();
-  const label = words.label;
+  /* Count the flips the server confirms, so the flash and the burst replay
+     on each one and never on arrival (adjusting state during render). */
+  const [seen, setSeen] = useState(on);
+  const [flips, setFlips] = useState(0);
+  if (on !== seen) {
+    setSeen(on);
+    setFlips((n) => n + 1);
+  }
+  const { path } = words;
   return (
-    <div className="space-y-4">
-      <div className="flex items-start gap-4">
+    <article
+      data-spot=""
+      data-on={on ? "" : undefined}
+      data-busy={pending ? "" : undefined}
+      aria-label={words.label}
+      className="sx-sr-rule sx-ap-rise"
+      style={{ "--d": `${delay}s` } as CSSProperties}
+    >
+      <span aria-hidden="true" className="sx-sr-rule-edge" />
+      {flips > 0 && <span key={`f${flips}`} aria-hidden="true" className="sx-sr-rule-flash" />}
+
+      <div className="sx-sr-rule-head">
+        <span className="sx-sr-rule-icon" aria-hidden="true">
+          <Glyph ui={words.icon} className="size-[18px]" />
+        </span>
+        <div className="min-w-0">
+          <p className="sx-sr-rule-tag">{words.tag}</p>
+          <h3 className="sx-sr-rule-title">{words.label}</h3>
+        </div>
         <button
           type="button"
           role="switch"
           aria-checked={on}
-          aria-label={label}
+          aria-label={words.label}
           data-flag={flag}
           disabled={pending}
           onClick={() => run(() => setSignupFlagAction(flag, !on))}
-          className={`relative mt-0.5 h-7 w-12 shrink-0 rounded-full border transition-[background-color,border-color,box-shadow] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63b4f8]/70 disabled:opacity-50 ${
-            on
-              ? "border-[#fb923c] bg-[#f97a1f]/35 shadow-[0_0_16px_rgba(249,122,31,.45)]"
-              : "border-[#63b4f8]/45 bg-[#2e9bf5]/15"
-          }`}
+          className="sx-sr-switch"
         >
-          <span
-            aria-hidden="true"
-            className={`absolute top-1 size-[18px] rounded-full transition-[left,background-color] duration-300 ${on ? "left-[25px] bg-[#ffd1a6]" : "left-1 bg-[#cfe9ff]"}`}
-          />
+          {flips > 0 && <span key={`b${flips}`} aria-hidden="true" className="sx-sr-burst" />}
+          <span aria-hidden="true" className="sx-sr-knob">
+            <Glyph ui={on ? "pause" : "bolt"} className="size-3.5" />
+          </span>
         </button>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-white">{label}</p>
-          <p className="mt-0.5 text-xs text-[#8a96a3]">{pending ? "Saving…" : on ? words.state.on : words.state.off}</p>
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:max-w-3xl" aria-hidden="true">
-        {[
-          { key: false, title: "Off", body: words.off },
-          { key: true, title: "On", body: words.on },
-        ].map((s) => {
-          const lit = s.key === on;
-          return (
-            <div
-              key={s.title}
-              className={`rounded-lg border px-3 py-2.5 text-xs transition-colors duration-300 ${
-                lit
-                  ? s.key
-                    ? "border-[#fb923c]/60 bg-[#f97a1f]/12 text-[#ffd1a6]"
-                    : "border-[#63b4f8]/60 bg-[#2e9bf5]/15 text-[#cfe9ff]"
-                  : "border-white/10 bg-white/[0.02] text-[#7e88a0]"
-              }`}
-            >
-              <span className="flex items-center gap-1.5 font-semibold">
-                <span className={`size-1.5 rounded-full ${lit ? (s.key ? "bg-[#fb923c]" : "bg-[#63b4f8]") : "bg-[#4b5563]"}`} />
-                {s.title}
-              </span>
-              <span className="mt-1 block leading-relaxed">{s.body}</span>
-            </div>
-          );
-        })}
+      {/* The path — a picture of the sentence below it. */}
+      <div className="sx-sr-path" aria-hidden="true">
+        <span className="sx-sr-track">
+          <span className="sx-sr-runner" />
+        </span>
+        <span className="sx-sr-node">
+          <span className="sx-sr-dot">
+            <Glyph ui={path.startIcon} className="size-4" />
+          </span>
+          <span className="sx-sr-node-label">{path.start}</span>
+        </span>
+        <span className="sx-sr-node sx-sr-gate">
+          <span className="sx-sr-dot">
+            <Glyph ui={path.gateIcon} className="size-4" />
+          </span>
+          <span className="sx-sr-node-label">{path.gate}</span>
+          <span className="sx-sr-gate-tag">{on ? "Waits here" : "Skipped"}</span>
+        </span>
+        <span className="sx-sr-node" data-end="">
+          <span className="sx-sr-dot">
+            <Glyph ui="check" className="size-4" />
+          </span>
+          <span className="sx-sr-node-label">{path.end}</span>
+        </span>
       </div>
-      <Said r={result} />
-    </div>
+
+      <div>
+        <p className="sx-sr-now-k">{pending ? "Saving…" : "What happens now"}</p>
+        <p className="sx-sr-now">{on ? words.on : words.off}</p>
+        <p className="sx-sr-else">
+          <b>Switch it {on ? "off" : "on"}:</b> {on ? words.off : words.on}
+        </p>
+      </div>
+
+      <div className="sx-sr-rule-foot">
+        <span className="sx-sr-badge">
+          <i aria-hidden="true" />
+          {on ? words.badge.on : words.badge.off}
+        </span>
+        <div className="sx-sr-said">
+          <Said r={result} />
+        </div>
+      </div>
+    </article>
   );
 }
