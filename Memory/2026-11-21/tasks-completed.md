@@ -37,10 +37,18 @@
 - **Effect:** the app works as before; every acceptance still records the fee statement it would have shown, marked not shown, and a hash that is sent is still checked.
 - **Next:** turn it on in staging and production together once POL-FE-119 is live. SponsorX-Switches.md updated to match.
 
+## POL-FE-121 · The rules wording on Confirmations gets its closing quotation mark (infinex1) — Done (#518, #521 merged) (first committed as POL-FE-116, a number taken the same day)
+
+- **What:** step 1 of `/athlete/confirmations` ("Your own rules") showed a large opening quotation mark and no closing one, so on a PC the box looked cut off and testers tried to scroll it. The box is not meant to scroll: it grows to fit the whole statement. It now ends with a matching closing mark, bottom-right, and the bottom padding is wider so the mark sits under the last line instead of on it.
+- **Where:** `frontend/src/app/(app)/athlete/confirmations/confirmations.css`, `.sx-cw-quote` and the new `.sx-cw-quote::after`. CSS only.
+- **Step 2 (Content Collaboration Agreement) was checked and already scrolls:** its reader is capped at `min(28rem, 55vh)` and scrolls inside. In Chrome a mouse wheel scrolled a mock of it 600px at 1280px wide, and a touch swipe scrolled it 500px on an iPhone 13 viewport.
+- **Checked:** rendered the box at 1280px and on an iPhone 13; the closing mark clears the last line on both. `npm run build` (frontend) passes. Frontend tests: 2,522 pass, 2 fail in `tests/deal-chat.test.ts`. Those two fail the same way on `main_development` without this change (the live-socket work of 2026-11-19), so they are not caused by it.
+- **Tracker:** Polish row `POL-FE-121` (row 171), added with POL-FE-122 (#519).
+
 ## POL-FE-122 · "Select everything" and "Clear" on the Brands step (infinex1) — Code review
 - **What:** `/athlete/profile`, step 5 "Brands you'd love". "Select everything" is a toggle: on, it adds the 19 everyday kinds and keeps anything else picked; pressed again, it clears every pick. "Clear" clears every pick.
 - **Owner decision:** Select everything leaves out the six age-restricted kinds for everyone, since the step shows on the public page, a minor's included. A note under the buttons says so.
 - **Also:** `tests/deal-chat.test.ts` normalises line endings, so it passes on a Windows checkout (`core.autocrlf`). Deal Chat itself was never failing; CI on Linux was green.
 - **Checked:** frontend 220 files / 2,747 tests pass; the backend alignment checks pass; lint clean; `npm run build` passes after `prisma generate` (the client was stale after today's pull).
-- **Tracker:** Polish rows `POL-FE-121` (row 171) and `POL-FE-122` (row 172) at Code review, infinex1; autofilter, conditional formatting and the Status list extended to row 172. Items 121 and 122 added to polish.md.
+- **Tracker:** Polish row `POL-FE-121` (row 171) Done 2026-11-21; `POL-FE-122` (row 172) at Code review, infinex1; autofilter, conditional formatting and the Status list extended to row 172. Items 121 and 122 added to polish.md.
 - **Renumbered:** the quote fix (#518) was committed as `POL-FE-116`, a number already taken that day; it is `POL-FE-121`.

@@ -3614,7 +3614,7 @@ the blockers and today's content review findings.
   - **Then:** turn `FEE_STATEMENT_REQUIRED` on, staging first.
 
 ### 121. The rules wording on Confirmations opens a quotation and never closes it, so it reads as cut off and testers try to scroll it [§9, P8-BE-02]
-`POL-FE-121` · *Polish* · confirmed · **Code review** (infinex1, 2026-11-21, #518)
+`POL-FE-121` · *Polish* · confirmed · **Done 2026-11-21** (infinex1; #518 into main_development, #521 into main)
 - **Problem:** step 1 of `/athlete/confirmations` ("Your own rules") shows a large opening quotation mark and no closing one. On a PC the box looks unfinished, and testers took it for a box that should scroll. It doesn't scroll: it grows to fit the whole statement.
 - **Fix:** a matching closing mark bottom-right (`.sx-cw-quote::after`), with wider bottom padding so it sits under the last line on a phone.
 - **Checked:** step 2's agreement reader already scrolls, capped at `min(28rem, 55vh)`; a wheel on PC and a swipe on a phone both scroll it.
