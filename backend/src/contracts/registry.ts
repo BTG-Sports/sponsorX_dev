@@ -130,7 +130,7 @@ import {
   RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SponsorCategoriesInput,
   MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput, SellerApprovalDecisionInput,
-  CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput, ListingSubmitInput, ListingFeesInput
+  CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput, ListingSubmitInput, ListingFeesInput, SellerTermsAcceptInput
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
 import { AthletePhotoInput, AthletePhotoUploadInput, HomeFeatureStatus, HomePageActionInput, PublicFeaturedAthletes } from "./home-featured";
@@ -673,6 +673,8 @@ const PATHS: Row[] = [
   { method: "get", path: "/listings/{id}", tag: "Marketplace", summary: "One listing, with whatever still blocks publishing it, how it went live (`publishedBy`: AUTOMATIC or BTG), and — while held — `hold` (the restricted words in full; standing reasons only as an account check). BTG also reads `reviewReasons`." },
   { method: "patch", path: "/listings/{id}", tag: "Marketplace", summary: "Edit wording, visibility or schedule — DRAFT, PAUSED, or held for BTG (the edit takes it back to DRAFT).", body: ListingPatch },
   { method: "post", path: "/listings/{id}/submit", tag: "Marketplace", summary: "Submit — refused (422, with the list) while governance fails; otherwise PUBLISHED at once (or at its publish date) unless flagged — restricted words, the seller's standing — when it waits in PENDING_APPROVAL for BTG with its reasons (2S3-BE-06). The seller is emailed either way; BTG admins per held listing. POL-BE-119 — submitting accepts the listing's fee statement (GET /listings/{id} → feeStatement, feeStatementHash); with FEE_STATEMENT_REQUIRED on it must be echoed (409 fee_statement_required / fee_statement_changed).", body: ListingSubmitInput },
+  { method: "get", path: "/seller-terms", tag: "Marketplace", summary: "POL-BE-120 — a team's manager reads the seller terms in force (text and hash) and whether the team has accepted that version. With FEE_STATEMENT_REQUIRED on, a team on an older version can't list, resume, accept a listing's fees, accept an order or sign a Deal agreement as the seller (409 seller_terms_required)." },
+  { method: "post", path: "/seller-terms/accept", tag: "Marketplace", summary: "POL-BE-120 — the team's manager accepts the seller terms shown, by their hash; recorded on the team's onboarding with the IP and browser, and audited. 409 when the version shown is no longer the one in force.", body: SellerTermsAcceptInput },
   { method: "post", path: "/listings/{id}/accept-fees", tag: "Marketplace", summary: "POL-BE-119 — the seller accepts the listing's fee statement at today's rates without pausing it (a listing submitted before statements, or whose rates changed). Its orders then go ahead without asking while their rates are these. 409 fee_statement_changed with the current statement when it moved.", body: ListingFeesInput },
   { method: "post", path: "/listings/{id}/transition", tag: "Marketplace", summary: "Pause, resume or archive. Resume runs the submit's automatic path; a listing BTG paused goes back to BTG.", body: ListingTransitionInput },
   { method: "post", path: "/listings/{id}/decision", tag: "Marketplace", summary: "BTG decides a held listing: approve (publishes it), request changes (back to DRAFT) or reject (ends it); the seller is emailed (2S3-BE-06).", body: ListingDecisionInput },

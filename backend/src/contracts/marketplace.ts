@@ -9,6 +9,13 @@ import { LOGO_TYPES } from "../domain/branding";
 
 /** POL-BE-119 — the hash of the fee statement the screen showed ("sha256:<hex>"), echoed back with an acceptance. */
 export const FeeStatementHash = z.string().regex(/^sha256:[0-9a-f]{64}$/).meta({ id: "FeeStatementHash", description: "The hash of the fee statement shown before accepting (POL-BE-119): the transaction fee, who pays it and the processing cost." });
+export const SellerTermsAcceptInput = z
+  .object({
+    agreementId: z.string().min(1).describe("The seller terms shown (GET /seller-terms → agreement.id)"),
+    bodyHashShown: z.string().min(1).max(200).describe("Hash of the terms as rendered (agreement.bodyHash)"),
+  })
+  .strict()
+  .meta({ id: "SellerTermsAcceptInput", description: "POL-BE-120 — a team's manager accepts the seller terms in force. The IP and browser come from the request." });
 export const ListingFeesInput = z
   .object({ feeStatementHash: FeeStatementHash })
   .strict()

@@ -62,6 +62,8 @@ export type JobName =
      mean touching the worker's handler registration. */
   | "notify.email"
   | "notify.campaignLive"
+  /* POL-BE-119 — a commission rule created or revised: sellers whose accepted listing fees no longer match are emailed. */
+  | "notify.feeRatesChanged"
   | "notify.invitationSent"
   | "notify.deliverableDue"
   | "reward.generateQr"

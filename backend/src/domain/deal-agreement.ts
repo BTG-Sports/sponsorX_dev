@@ -45,6 +45,7 @@ import { ensureFeeTerms } from "./ledger";
 import { dealFeesWords, inFeeOrder, presentStatement, sellerStatementFor, spreadAmount } from "./fee-statement";
 import { sponsorOrderStatement } from "./fee-statement-rules";
 import { orderQuote } from "./marketplace-order-rules";
+import { assertSellerTermsCurrent } from "./seller-terms";
 
 type Tx = Prisma.TransactionClient;
 
@@ -335,6 +336,8 @@ export async function signDealAgreement(actor: Actor, id: string, input: SignInp
     const side = sideOf(actor, r);
     if (!side) throw new ForbiddenError("dealAgreement", "write");
     if (side === "SELLER" && r.athleteId) await assertMayCommit(tx, actor, "accept");
+    /* POL-BE-120 — a team signing as the seller is on the seller terms in force. */
+    if (side === "SELLER" && r.propertyId) await assertSellerTermsCurrent(tx, actor);
     const field = side === "SPONSOR" ? "sponsorAcceptanceId" : "sellerAcceptanceId";
     if (r[field]) throw new DealAgreementError("You have already signed this agreement.");
     /* 2S4-BE-16 — checked again right before the signature: the chat is all green and posted this form (owner, 2026-11-18). */

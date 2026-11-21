@@ -44,13 +44,14 @@
  * goes live again only by BTG. BTG admins are emailed per held listing, and
  * once a day a summary of what went live on its own (`sendListingDigests`).
  */
+import { createHash } from "node:crypto";
 import type { Prisma } from "../generated/prisma/client";
 import { resolveFeeTerms } from "./ledger";
 import { asListingFeeAcceptance, feeRates, listingStatement, presentStatement, requireFeeStatement, type ListingFeeAcceptance } from "./fee-statement";
 import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
 import { env } from "../config/env";
-import { send, type EmailTemplate } from "../lib/email";
+import { alreadyQueued, send, type EmailTemplate } from "../lib/email";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
@@ -73,6 +74,7 @@ import {
 import { logError } from "../lib/redact";
 import { VIRTUAL_PLACEMENT_KIND } from "./virtual-rules";
 import { readPage, type PageRequest } from "../lib/paging";
+import { assertSellerTermsCurrent } from "./seller-terms";
 
 export class ListingError extends Error {
   readonly status: number;
@@ -258,6 +260,8 @@ async function listingFees(tx: Prisma.TransactionClient, row: Row, now: Date) {
 
 /** Submitting or resuming is the seller's acceptance of the listing's fees: checked, then kept on the listing. */
 async function acceptListingFees(tx: Prisma.TransactionClient, actor: Actor, row: Row, shown: string | null | undefined, now: Date) {
+  /* POL-BE-120 — a team on older seller terms accepts the version in force first. */
+  await assertSellerTermsCurrent(tx, actor);
   const { terms, statement } = await listingFees(tx, row, now);
   const record = requireFeeStatement(statement, shown);
   const acceptance: ListingFeeAcceptance = { record, rates: feeRates(terms, row.id), acceptedAt: now.toISOString(), acceptedBy: actor.userId };
@@ -655,6 +659,67 @@ export async function submitListing(actor: Actor, id: string, feeStatementHash?:
     await acceptListingFees(tx, actor, row, feeStatementHash, now);
     return goLive(tx, actor, row, now);
   });
+}
+
+/**
+ * POL-BE-119 — tell sellers their fees changed (owner, 2026-11-21: "add the
+ * seller email when rates change"). Every live listing (published or paused)
+ * in the operator's marketplace is priced at `at` — the moment a new or revised
+ * rule takes effect, or now — and compared with the rates its seller accepted.
+ * Each seller with listings that differ gets one email naming them, with the
+ * link to accept the fees again; until they do, each order on those listings
+ * asks them first. Run when a rule is created or revised (commission.ts queues
+ * notify.feeRatesChanged) and daily by the worker, which also reaches listings
+ * never accepted at all (submitted before statements existed). A seller is
+ * emailed once per set of listings and rates. Only with FEE_STATEMENT_REQUIRED
+ * on: before that, no order asks and the screens can't accept.
+ */
+export async function notifyFeeRatesChanged(opts: { operatorTenantId?: string; at?: Date } = {}, now = new Date()) {
+  if (!env.FEE_STATEMENT_REQUIRED) return { skipped: "FEE_STATEMENT_REQUIRED is off", listings: 0, emailed: 0 };
+  const at = opts.at && opts.at > now ? opts.at : now;
+  const rows = await prisma.listing.findMany({
+    /* tenant-scope: the system's sweep — every live listing in the named operator's marketplace (its own tenant and the tenants it operates), or in every operator's. */
+    where: {
+      state: { in: ["PUBLISHED", "PAUSED"] },
+      ...(opts.operatorTenantId ? { OR: [{ tenantId: opts.operatorTenantId }, { tenant: { operatorTenantId: opts.operatorTenantId } }] } : {}),
+    },
+    select: { ...SELECT, feeAcceptance: true }, orderBy: [{ id: "asc" }],
+  });
+  const groups = new Map<string, { seat: Seat; items: Array<{ id: string; title: string; rates: string }> }>();
+  let stale = 0;
+  for (const row of rows) {
+    const { terms } = await prisma.$transaction((tx) => listingFees(tx, row, at));
+    const rates = feeRates(terms, row.id);
+    if (asListingFeeAcceptance(row.feeAcceptance)?.rates === rates) continue;
+    stale++;
+    for (const seat of await sellerRecipients(prisma, row)) {
+      const key = `${seat.tenantId}:${seat.email.toLowerCase()}`;
+      const g = groups.get(key) ?? { seat, items: [] };
+      g.items.push({ id: row.id, title: row.title, rates });
+      groups.set(key, g);
+    }
+  }
+  const from = at > now ? ` from ${at.toISOString().slice(0, 10)}` : "";
+  let emailed = 0;
+  await prisma.$transaction(async (tx) => {
+    for (const { seat, items } of groups.values()) {
+      const fingerprint = createHash("sha256").update(JSON.stringify(items.map((i) => [i.id, i.rates]))).digest("hex").slice(0, 24);
+      const key = `listing.feeRatesChanged:${seat.email.toLowerCase()}:${fingerprint}`;
+      /* The daily sweep finds the same change again until the seller accepts: queued once (the worker drops any repeat too). */
+      if (await alreadyQueued(tx, seat.tenantId, key)) continue;
+      await send(tx, seat.tenantId, {
+        template: "listing.feeRatesChanged", to: seat.email,
+        idempotencyKey: key,
+        data: {
+          firstName: seat.firstName, from, count: String(items.length),
+          listings: items.map((i) => `- ${i.title}`).join("\n"),
+          listingsUrl: `${app()}${seat.path.replace(/\/[^/]+$/, "")}`,
+        },
+      });
+      emailed++;
+    }
+  });
+  return { listings: stale, emailed };
 }
 
 /**

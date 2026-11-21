@@ -17,3 +17,9 @@
   - e2e left to CI.
 - **For HeckerCreatives:** POL-FE-119, the fee box on every acceptance screen, the sponsor's confirm-the-price screen and the PDF. Routes and fields are in polish.md item 119.
 - **Tracker:** Polish rows POL-BE-119 and POL-BE-120 at Code review, rcfworks; POL-FE-119 Ready, HeckerCreatives.
+
+## POL-BE-119 / POL-BE-120 · follow-ups the owner asked for (rcfworks)
+- **Seller email when rates change:** a commission rule created or revised queues `notify.feeRatesChanged`, and the worker runs the same check daily. Each seller whose live listings' accepted fees no longer match gets one email naming them, never twice for the same set. Sent only with the switch on.
+- **Existing sellers accept the new seller terms:** `GET /seller-terms` and `POST /seller-terms/accept`. With the switch on, a team on older terms can't list or accept orders until it accepts. The "new terms" screen is added to POL-FE-119.
+- **The switch:** stays off. The owner chose to turn it on after POL-FE-119 ships, staging first. Turning it on now would block every acceptance, because the screens don't send the statement yet.
+- **Agreement display, checked:** every acceptance screen already shows the agreement's full text, loaded from the version in force, with a tick box before Accept or Sign: the athlete's order and offer, the sponsor's checkout, Deal Chat signing and seller onboarding. The new versions appear there once deployed. The gap was existing sellers, now covered by the seller-terms step above.

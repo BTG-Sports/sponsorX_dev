@@ -171,6 +171,26 @@ describe.skipIf(!hasDatabase)("POL-BE-119 · fee statements on the marketplace",
     await expect(prisma.marketplaceOrder.update({ where: { id: orderId }, data: { feeTerms: { v: 1 } } })).rejects.toThrow(/fee terms are fixed once disclosed/);
   });
 
+  it("POL-BE-120 · a team on older seller terms reads the version in force and accepts it before acting as a seller", async () => {
+    const terms = (await call("GET", "/seller-terms", "fd_mgr_e")).json;
+    expect(terms.agreement).toMatchObject({ kind: "PROPERTY_TERMS", version: 3 });
+    expect(terms.agreement.body).toContain("carry no upfront or monthly access fee");
+    expect(terms.agreement.body).not.toContain("15%");
+    expect(terms).toMatchObject({ upToDate: false, required: true });
+
+    const approval = ((await call("GET", "/seller-approvals", "fd_mgr_e")).json.approvals as Array<{ id: string; canAnswer: boolean; feeStatementHash: string }>).find((a) => a.canAnswer)!;
+    const refused = await call("POST", `/seller-approvals/${approval.id}/decision`, "fd_mgr_e", { decision: "ACCEPT", feeStatementHash: approval.feeStatementHash });
+    expect(refused.status).toBe(409);
+    expect(refused.json.error).toMatchObject({ code: "seller_terms_required", version: 3 });
+
+    expect((await call("POST", "/seller-terms/accept", "fd_mgr_e", { agreementId: terms.agreement.id, bodyHashShown: "sha256:other" })).status).toBe(409);
+    expect((await call("POST", "/seller-terms/accept", "fd_s1_admin", { agreementId: terms.agreement.id, bodyHashShown: terms.agreement.bodyHash })).status).toBe(403);
+    const ok = await call("POST", "/seller-terms/accept", "fd_mgr_e", { agreementId: terms.agreement.id, bodyHashShown: terms.agreement.bodyHash });
+    expect(ok.status, ok.text).toBe(200);
+    expect(ok.json).toMatchObject({ upToDate: true, accepted: { version: 3 } });
+    expect(await prisma.auditLog.count({ where: { action: "agreement.accept", entityId: terms.agreement.id, after: { path: ["reaccepted"], equals: true } } })).toBe(1);
+  });
+
   it("a rule revised after placement never reaches the order: the seller is shown, accepts and is booked at the frozen rate", async () => {
     const revised = await call("POST", `/commission-rules/${RULES.PLATFORM_FEE}/revise`, "fd_admin", { bps: 2000 });
     expect(revised.status, revised.text).toBeLessThan(300);
@@ -193,6 +213,29 @@ describe.skipIf(!hasDatabase)("POL-BE-119 · fee statements on the marketplace",
 
     const fin = await prisma.orderLineFinancials.findMany({ where: { orderId }, select: { platformFeeCents: true, processingCents: true, reserveCents: true, availableCents: true } });
     expect(fin).toEqual([{ platformFeeCents: 18_000, processingCents: 3_510, reserveCents: 9_849, availableCents: 88_641 }]);
+  });
+
+  it("a rule change queues the seller email; the seller is emailed once, naming the listings whose fees changed", async () => {
+    const { notifyFeeRatesChanged } = await import("../src/domain/listing");
+    const queued = await prisma.outboxJob.findMany({ where: { tenantId: T, name: "notify.feeRatesChanged" }, select: { payload: true } });
+    /* Queued with each rule change (the outbox drain may already have handed some on). */
+    expect(queued.length).toBeGreaterThanOrEqual(1);
+    expect(queued.at(-1)!.payload).toMatchObject({ operatorTenantId: T, effectiveFrom: expect.any(String) });
+
+    const sent = async () => (await prisma.outboxJob.findMany({ where: { tenantId: E.tenant, name: "notify.email" }, select: { payload: true } }))
+      .map((j) => j.payload as { template: string; to: string; data: Record<string, string> }).filter((p) => p.template === "listing.feeRatesChanged");
+    const r = await notifyFeeRatesChanged({ operatorTenantId: T });
+    expect(r).toMatchObject({ listings: 1, emailed: 1 });
+    const mails = await sent();
+    expect(mails).toHaveLength(1);
+    expect(mails[0]).toMatchObject({ to: "fd_mgr_e@lg-test.invalid", data: { count: "1", listings: "- Courtside banner" } });
+    /* The same change again: no second email. */
+    await notifyFeeRatesChanged({ operatorTenantId: T });
+    expect(await sent()).toHaveLength(1);
+    /* Off: nothing is checked or sent. */
+    env.FEE_STATEMENT_REQUIRED = false;
+    expect(await notifyFeeRatesChanged({ operatorTenantId: T })).toMatchObject({ skipped: expect.any(String) });
+    env.FEE_STATEMENT_REQUIRED = true;
   });
 
   it("a listing is submitted with its own statement; refused without it; its orders then go ahead without asking", async () => {

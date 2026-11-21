@@ -402,6 +402,7 @@ const BODY: Record<string, unknown> = {
   "PATCH /listings/{id}": { title: "Renamed" },
   "POST /listings/{id}/transition": { to: "ARCHIVED" },
   "POST /listings/{id}/accept-fees": { feeStatementHash: `sha256:${"0".repeat(64)}` },
+  "POST /seller-terms/accept": { agreementId: "none", bodyHashShown: "sha256:none" },
   "POST /listings/{id}/decision": { decision: "APPROVE" },
   /* 2S3-BE-06 — BTG pauses or ends a live listing, with a reason. */
   "POST /listings/{id}/btg-action": { action: "PAUSE", reason: "Isolation sweep" },

@@ -11,7 +11,7 @@ import { requireActor } from "../../auth/actor";
 import { clientIp, clientUserAgent } from "../../lib/client-ip";
 import {
   BrandingInput, InventoryItemInput, InventoryItemPatch, ListingBtgActionInput, ListingDecisionInput, ListingInput, ListingPatch, ListingState, LiveListingsQuery,
-  ListingTransitionInput, ListingSubmitInput, ListingFeesInput, LogoUploadInput, OfferAthletesQuery, OfferChecksQuery, OfferDraftQuery, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput,
+  ListingTransitionInput, ListingSubmitInput, ListingFeesInput, SellerTermsAcceptInput, LogoUploadInput, OfferAthletesQuery, OfferChecksQuery, OfferDraftQuery, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput,
   RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SearchQuery, SponsorCategoriesInput,
   MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput, SellerApprovalDecisionInput,
@@ -53,6 +53,7 @@ import {
 } from "../../domain/delivery";
 import { listRefunds, markRefundSent } from "../../domain/refunds";
 import { sellerSummary } from "../../domain/seller-summary";
+import { acceptSellerTerms, sellerTermsOf } from "../../domain/seller-terms";
 import {
   inviteAthlete, invitableAthletes, leaveTeam, myTeam, removeFromRoster, respondToInvitation, respondToShareChange, teamInvitations, withdrawInvitation,
 } from "../../domain/team-invitations";
@@ -146,6 +147,12 @@ marketplaceRouter.get("/listings/live", requireActor, live);
 marketplaceRouter.get("/listings/:id", requireActor, listing);
 marketplaceRouter.patch("/listings/:id", requireActor, editListing);
 marketplaceRouter.post("/listings/:id/submit", requireActor, submit);
+/* POL-BE-120 — a team reads and accepts the seller terms in force. */
+marketplaceRouter.get("/seller-terms", requireActor, (async (req, res) => { res.json(await sellerTermsOf(req.actor!)); }) as RequestHandler);
+marketplaceRouter.post("/seller-terms/accept", requireActor, (async (req, res) => {
+  const b = SellerTermsAcceptInput.parse(req.body);
+  res.json(await acceptSellerTerms(req.actor!, { ...b, ip: clientIp(req) ?? "", userAgent: clientUserAgent(req) ?? "" }));
+}) as RequestHandler);
 /* POL-BE-119 — accept a live listing's fees at today's rates without pausing it. */
 marketplaceRouter.post("/listings/:id/accept-fees", requireActor, (async (req, res) => { res.json(await acceptListingFeesNow(req.actor!, req.params.id, ListingFeesInput.parse(req.body).feeStatementHash)); }) as RequestHandler<Id>);
 marketplaceRouter.post("/listings/:id/transition", requireActor, moveListing);

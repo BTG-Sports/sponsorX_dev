@@ -52,6 +52,7 @@ import { readSegments, type PageRequest } from "../lib/paging";
 import { ensureFeeTerms } from "./ledger";
 import { FEE_LINE_ORDER, presentStatement, requireFeeStatement, sellerStatementFor } from "./fee-statement";
 import type { FeeStatementRecord } from "./fee-statement-rules";
+import { assertSellerTermsCurrent } from "./seller-terms";
 
 type Tx = Prisma.TransactionClient;
 const HOUR = 3_600_000;
@@ -331,6 +332,7 @@ export async function decideSellerApproval(
     if (now >= row.dueAt) throw new SellerApprovalError("The 48 hours to answer are over, so the order is cancelled.");
     const next = decision === "ACCEPT" ? "ACCEPTED" : "DECLINED";
     /* POL-BE-119 — accepting is accepting the fee statement shown: checked, and kept with the answer. */
+    if (decision === "ACCEPT") await assertSellerTermsCurrent(tx, actor); // POL-BE-120 — on the seller terms in force
     const fee = decision === "ACCEPT" ? requireFeeStatement(await sellerFees(tx, row.orderId, row.lineIds, now), feeStatementHash) : null;
     const claimed = await tx.orderSellerApproval.updateMany({
       /* tenant-scope: the row just loaded through whereFor(orderSellerApproval, write); conditional, so a second answer finds nothing. */
