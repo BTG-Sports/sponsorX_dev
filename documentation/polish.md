@@ -3555,7 +3555,7 @@ the blockers and today's content review findings.
 - **Not built:** a login BTG switched off (`account_disabled`) still shows the generic page on `/portal`; its API message is right, the page doesn't read it yet.
 
 ### 119. Nobody is told the transaction fee, who pays it or the processing cost before accepting a campaign or order [§13, §19, §21, partnership agreement "Platform access and service orders"]
-`POL-BE-119` · `POL-BE-120` · `POL-FE-119` · *Trust* · confirmed · **`POL-BE-119`, `POL-BE-120` Code review 2026-11-21** (programme owner, 2026-11-21)
+`POL-BE-119` · `POL-BE-120` · `POL-FE-119` · *Trust* · confirmed · **`POL-BE-119`, `POL-BE-120` Done 2026-11-21** (#511, #512; promoted #513; deployed, release a85b4935) (programme owner, 2026-11-21)
 - **The agreement (Rodney, raised by the programme owner 2026-11-21):** "SponsorX onboarding and Partnership access carry no upfront or monthly access fee. Before campaign acceptance, disclose the applicable transaction fee, fee payer and processing costs in writing. If a fee applies, identify it in the signed campaign order. Any change requires written acceptance before it applies to that order." The owner's emphasis: "BEFORE CAMPAIGN ACCEPTANCE, DISCLOSE THE APPLICABLE TRANSACTION FEE, FEE PAYER AND PROCESSING COST IN WRITING."
 - **Problem:**
   - **Athletes** (Campaign Order, Offer) read only "your compensation is not reduced by BTG's fee": no fee, payer or processing named.

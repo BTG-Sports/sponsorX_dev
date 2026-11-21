@@ -23,3 +23,9 @@
 - **Existing sellers accept the new seller terms:** `GET /seller-terms` and `POST /seller-terms/accept`. With the switch on, a team on older terms can't list or accept orders until it accepts. The "new terms" screen is added to POL-FE-119.
 - **The switch:** the owner first chose to wait for POL-FE-119, then asked for it on now. `FEE_STATEMENT_REQUIRED=on` is set on staging's api service (rcfworks); production's is the owner's to set. It takes effect when #511 deploys, and from then every acceptance is refused until POL-FE-119's screens send the statement.
 - **Agreement display, checked:** every acceptance screen already shows the agreement's full text, loaded from the version in force, with a tick box before Accept or Sign: the athlete's order and offer, the sponsor's checkout, Deal Chat signing and seller onboarding. The new versions appear there once deployed. The gap was existing sellers, now covered by the seller-terms step above.
+
+## POL-BE-119 / POL-BE-120 Done and deployed (rcfworks)
+- **Merged and promoted:** #511 and #512 into main_development; #513 into main.
+- **Deployed:** release = main = a85b4935 on staging and production. Main's CI and the deploy run passed.
+- **Switch:** `FEE_STATEMENT_REQUIRED=on` on staging (rcfworks). Production is the owner's to set; I'm not permitted to read production's variables, so it's unconfirmed here. From this deploy, wherever it's on, every acceptance waits for POL-FE-119's screens.
+- **Tracker:** Polish rows POL-BE-119 and POL-BE-120 Done 2026-11-21. Stage Progress row for 2026-11-21: 324 Done (S9 44), 21 days left, unchanged.
